@@ -1,0 +1,17 @@
+version: "3.7"
+
+services:  
+  ch21-kubeless-cli:
+    image: kiamol/ch21-kubeless-cli
+    build:
+      context: ./kubeless-cli
+
+  ch21-serverless-cli:
+    image: kiamol/ch21-serverless-cli
+    build:
+      context: ./serverless-cli
+
+  ch21-todo-api:
+    image: kiamol/ch21-todo-api
+    build:
+      context: ./todo-api

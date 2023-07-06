@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: numbers-api
+  labels:
+    kiamol: ch06-lab
+spec:
+  selector:
+    matchLabels:
+      app: numbers-api
+  template:
+    metadata:
+      labels:
+        app: numbers-api
+    spec:
+      containers:
+        - name: api
+          image: kiamol/ch03-numbers-api
+      nodeSelector:
+        rng: hw

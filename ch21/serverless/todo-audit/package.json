@@ -1,0 +1,14 @@
+{
+  "name": "todo-audit",
+  "description" : "To-do list - new item audit",
+  "repository": {
+    "type" : "git",
+    "url" : "https://github.com/sixeyed/kiamol"
+  },
+  "license": "MIT",
+  "version": "0.1.0",
+  "author": "kiamol",
+  "dependencies": {
+    "serverless-kubeless": "0.10.0"
+  }
+}

@@ -1,0 +1,76 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: todo-web-sticky
+  labels:
+    kiamol: ch15
+  annotations:
+    kubernetes.io/ingress.class: traefik
+    traefik.ingress.kubernetes.io/service.sticky.cookie: "true"
+spec:
+  ports:
+    - port: 80
+      targetPort: 80
+  selector:
+    app: todo-web
+---
+apiVersion: networking.k8s.io/v1beta1 
+kind: Ingress
+metadata:
+  name: todo2-new
+  labels:
+    kiamol: ch15
+  annotations:
+    kubernetes.io/ingress.class: traefik
+    traefik.ingress.kubernetes.io/router.pathmatcher: Path
+spec:
+  rules:
+  - host: todo2.kiamol.local
+    http:
+      paths:
+      - path: /new
+        backend:
+          serviceName: todo-web-sticky
+          servicePort: 80
+---
+apiVersion: networking.k8s.io/v1beta1 
+kind: Ingress
+metadata:
+  name: todo2-static
+  labels:
+    kiamol: ch15
+  annotations:
+    kubernetes.io/ingress.class: traefik
+    traefik.ingress.kubernetes.io/router.pathmatcher: PathPrefix
+spec:
+  rules:
+  - host: todo2.kiamol.local
+    http:
+      paths:
+      - path: /static
+        backend:
+          serviceName: todo-web
+          servicePort: 80
+---
+apiVersion: networking.k8s.io/v1beta1 
+kind: Ingress
+metadata:
+  name: todo2
+  labels:
+    kiamol: ch15
+  annotations:
+    kubernetes.io/ingress.class: traefik
+    traefik.ingress.kubernetes.io/router.pathmatcher: Path
+spec:
+  rules:
+  - host: todo2.kiamol.local
+    http:
+      paths:
+      - path: /
+        backend:
+          serviceName: todo-web
+          servicePort: 80
+      - path: /list
+        backend:
+          serviceName: todo-web
+          servicePort: 80

@@ -1,0 +1,2602 @@
+<쿠버네티스 교과서> 2~14장의 명령 모음입니다.
+실습 편의를 위하여 만들었으며, 일부 설정 등은 책을 참고해야 하는 부분이 있습니다.
+실습 시 복사하여 사용하세요.
+
+
+2장
+2장 실습은 컨테이너 런타임이 도커여야 한다. Rancher Desktop이라면 Container Engine을 dockered로 설정한 상태에서 실습을 진행한다. 따로 언급하지 않으면 기본 설정은 containerd이다.
+
+
+# 컨테이너 하나를 담은 파드를 실행한다
+kubectl run hello-kiamol --image=kiamol/ch02-hello-kiamol 
+
+# 파드가 준비 상태가 될 때까지 기다린다
+kubectl wait --for=condition=Ready pod hello-kiamol
+
+# 클러스터에 있는 모든 파드의 목록을 출력
+kubectl get pods
+
+# 파드의 상세 정보를 확인한다
+kubectl describe pod hello-kiamol
+-----------------------------------------------------
+
+# 파드에 대한 기본적인 정보를 확인한다
+kubectl get pod hello-kiamol
+
+# 네트워크 상세 정보 중 특정한 항목을 따로 지정해 출력한다
+kubectl get pod hello-kiamol --output custom-columns=NAME:metadata.name,NODE_IP:status.hostIP,POD_IP:status.podIP
+
+# JSONPath로 복잡한 출력을 구성한다
+# 파드의 첫 번째 컨테이너의 컨테이너 식별자만 출력한다
+kubectl get pod hello-kiamol -o jsonpath='{.status.containerStatuses[0].containerID}'
+-----------------------------------------------------
+
+# 파드에 포함된 컨테이너 찾기
+docker container ls -q --filter label=io.kubernetes.container.name=hello-kiamol
+
+# 해당 컨테이너 삭제하기
+docker container rm -f $(docker container ls -q --filter label=io.kubernetes.container.name=hello-kiamol)
+
+# 파드 상태 확인
+kubectl get pod hello-kiamol
+
+# 이전 컨테이너 다시 찾아보기
+docker container ls -q --filter label=io.kubernetes.container.name=hello-kiamol
+-----------------------------------------------------
+
+# 로컬 컴퓨터의 8080 포트를 주시하다가 이 포트로 들어오는
+# 트래픽을 파드의 80번 포트로 전달한다
+kubectl port-forward pod/hello-kiamol 8080:80
+
+# 이제 웹 브라우저에서 http://localhost:8080에 접근한다
+
+# 확인이 끝나면 ctrl+c를 눌러 포트포워딩을 중단한다
+-----------------------------------------------------
+
+# 조금 전과 같은 웹 애플리케이션을 실행하는 디플로이먼트
+# ‘hello-kiamol-2’를 생성
+kubectl create deployment hello-kiamol-2 --image=kiamol/ch02-hello-kiamol
+
+# 파드의 목록을 출력
+kubectl get pods
+-----------------------------------------------------
+
+# 디플로이먼트가 부여한 파드의 레이블 출력
+kubectl get deploy hello-kiamol-2 -o jsonpath='{.spec.template.metadata.labels}'
+
+# 앞서 출력한 레이블을 가진 파드의 목록 출력
+kubectl get pods -l app=hello-kiamol-2
+-----------------------------------------------------
+
+# 모든 파드의 이름과 레이블 확인
+kubectl get pods -o custom-columns=NAME:metadata.name,LABELS:metadata.labels
+
+# 디플로이먼트가 생성한 파드의 ‘app’ 레이블 수정
+kubectl label pods -l app=hello-kiamol-2 --overwrite app=hello-kiamol-x
+
+# 파드가 또 하나 생성됐다
+kubectl get pods -o custom-columns=NAME:metadata.name,LABELS:metadata.labels
+-----------------------------------------------------
+
+# ‘app’이라는 레이블이 부여된 모든 파드의 이름과 레이블 출력
+kubectl get pods -l app -o custom-columns=NAME:metadata.name,LABELS:metadata.labels
+
+# 디플로이먼트의 관리를 벗어난 파드의 ‘app’ 레이블을 원래대로 수정
+kubectl label pods -l app=hello-kiamol-x --overwrite app=hello-kiamol-2
+
+# 파드의 목록을 다시 한 번 확인
+kubectl get pods -l app -o custom-columns=NAME:metadata.name,LABELS:metadata.labels
+-----------------------------------------------------
+
+# 로컬 컴퓨터에서 디플로이먼트로 포트 포워딩 설정
+kubectl port-forward deploy/hello-kiamol-2 8080:80
+
+# 웹 브라우저에서 http://localhost:8080에 접근한다
+# 확인이 끝나면 ctrl+c를 눌러 종료한다
+-----------------------------------------------------
+
+# 예제 코드의 최상위 디렉터리에서 ch02 디렉터리로 이동
+cd ch02
+
+# 매니페스트 파일로 애플리케이션 배포
+kubectl apply -f pod.yaml
+
+# 실행 중인 파드 목록 확인
+kubectl get pods
+-----------------------------------------------------
+
+# 원격 URL에서 제공되는 매니페스트 파일로 애플리케이션을 배포하라
+kubectl apply -f https://raw.githubusercontent.com/sixeyed/kiamol/master/ch02/pod.yaml
+-----------------------------------------------------
+
+# 디플로이먼트의 매니페스트로 애플리케이션 실행
+kubectl apply -f deployment.yaml
+
+# 새로운 디플로이먼트가 만든 파드 찾기
+kubectl get pods -l app=hello-kiamol-4
+-----------------------------------------------------
+
+# 처음 실행한 파드의 내부 IP 주소 확인
+kubectl get pod hello-kiamol -o custom-columns=NAME:metadata.name,POD_IP:status.podIP
+
+# 파드 내부와 연결할 대화형 셸 실행
+kubectl exec -it hello-kiamol sh
+
+# 파드 안에서 IP 주소를 확인하고
+hostname -i
+
+# 웹 애플리케이션의 동작 확인
+wget -O - http://localhost | head -n 4
+
+# 셸 세션 종료
+exit
+-----------------------------------------------------
+
+# 쿠버네티스를 통해 컨테이너의 최근 로그를 출력
+kubectl logs --tail=2 hello-kiamol
+
+# 그리고 도커를 통해 컨테이너에 접속해 실제 로그와 동일한지 확인
+docker container logs --tail=2 $(docker container ls -q --filter label=io.kubernetes.container.name=hello-kiamol)
+-----------------------------------------------------
+
+# YAML 파일의 정의에 따라 생성한 디플로이먼트가 만든
+# 파드 안에 들어 있는 컨테이너에서 웹 애플리케이션 호출
+kubectl exec deploy/hello-kiamol-4 -- sh -c 'wget -O - http://localhost > /dev/null'
+
+# 해당 파드의 로그 열람
+kubectl logs --tail=1 -l app=hello-kiamol-4
+-----------------------------------------------------
+
+# 로컬 컴퓨터에 임시 디렉터리 생성
+mkdir -p /tmp/kiamol/ch02
+
+# 파드 속에서 웹 페이지를 로컬 컴퓨터로 복사
+kubectl cp hello-kiamol:/usr/share/nginx/html/index.html /tmp/kiamol/ch02/index.html
+
+# 로컬 컴퓨터에서 파일 내용 확인
+cat /tmp/kiamol/ch02/index.html
+-----------------------------------------------------
+
+# 실행 중인 모든 파드의 목록 출력
+kubectl get pods
+
+# 모든 파드 삭제
+kubectl delete pods --all
+
+# 모든 파드가 삭제되었는지 확인
+kubectl get pods
+-----------------------------------------------------
+
+# 디플로이먼트 목록 확인
+kubectl get deploy
+
+# 디플로이먼트 모두 삭제
+kubectl delete deploy --all
+
+# 파드 목록 확인
+kubectl get pods
+
+# 모든 리소스 목록 확인
+kubectl get all
+-----------------------------------------------------
+
+
+3장
+
+# 실습 환경이 동작 중이 아니라면 실습 환경을 먼저 실행한다
+# 그 다음 이번 장 예제 코드의 디렉터리로 이동한다
+cd ch03
+
+# 각각 하나의 파드를 실행하는 두 개의 디플로이먼트를 생성한다
+kubectl apply -f sleep/sleep1.yaml -f sleep/sleep2.yaml
+
+# 파드가 완전히 시작될 때까지 기다린다
+kubectl wait --for=condition=Ready pod -l app=sleep-2
+
+# 두 번째 파드의 IP 주소를 확인한다
+kubectl get pod -l app=sleep-2 --output jsonpath='{.items[0].status.podIP}'
+
+# 같은 주소를 사용해 두 번째 파드에서 첫 번째 파드로 ping을 보낸다
+kubectl exec deploy/sleep-1 -- ping -c 2 $(kubectl get pod -l app=sleep-2 --output jsonpath='{.items[0].status.podIP}')
+-----------------------------------------------------
+
+# 파드의 현재 IP 주소를 확인한다
+kubectl get pod -l app=sleep-2 --output jsonpath='{.items[0].status.podIP}'
+
+# 디플로이먼트가 새 파드를 만들도록 현재 파드를 삭제한다
+kubectl delete pods -l app=sleep-2
+
+# 새로 대체된 파드의 IP 주소를 확인한다
+kubectl get pod -l app=sleep-2 --output jsonpath='{.items[0].status.podIP}’
+-----------------------------------------------------
+
+# 예제 3-1의 정의를 사용해 서비스를 배포한다
+kubectl apply -f sleep/sleep2-service.yaml
+
+# 서비스의 상세 정보를 출력한다
+kubectl get svc sleep-2
+
+# 파드와 통신이 잘 되는지 확인한다 -- 이 명령은 실패한다
+kubectl exec deploy/sleep-1 -- ping -c 1 sleep-2
+-----------------------------------------------------
+
+# 웹 사이트와 API를 담당할 두 개의 디플로이먼트를 실행한다
+kubectl apply -f numbers/api.yaml -f numbers/web.yaml
+
+# 파드의 준비가 끝날 때까지 기다린다
+kubectl wait --for=condition=Ready pod -l app=numbers-web
+
+# 웹 애플리케이션에 포트포워딩을 적용한다
+kubectl port-forward deploy/numbers-web 8080:80
+
+# 웹 브라우저에서 http://localhost:8080에 접근해
+# 화면상의 Go 버튼을 클릭하면 오류가 발생한다
+
+# 포트포워딩을 중단한다
+ctrl-c
+-----------------------------------------------------
+
+# 예제 3-2에 정의된 서비스를 배포한다
+kubectl apply -f numbers/api-service.yaml
+
+# 서비스의 상세 정보를 출력한다
+kubectl get svc numbers-api
+
+# 웹 애플리케이션에 접근할 수 있도록 포트포워딩을 적용한다
+kubectl port-forward deploy/numbers-web 8080:80
+
+# 웹 브라우저에서 http://localhost:8080에 접근해
+# Go 버튼을 클릭하면 잘 실행된다
+
+# 포트포워딩을 중단한다
+ctrl-c
+-----------------------------------------------------
+
+# API 파드의 이름과 IP 주소를 확인한다
+kubectl get pod -l app=numbers-api -o custom-columns=NAME:metadata.name,POD_IP:status.podIP
+
+# API 파드를 수동으로 삭제한다
+kubectl delete pod -l app=numbers-api
+
+# 새로 생성된 대체 파드의 이름과 IP 주소를 확인한다
+kubectl get pod -l app=numbers-api -o custom-columns=NAME:metadata.name,POD_IP:status.podIP
+
+# 웹 애플리케이션에 포트포워딩을 적용한다
+kubectl port-forward deploy/numbers-web 8080:80
+
+# 웹 브라우저에서 http://localhost:8080에 접근해
+# Go 버튼을 클릭한다
+
+# 포트포워딩을 중단한다
+ctrl-c
+-----------------------------------------------------
+
+# 로드밸런서 서비스를 배치한다
+# 방화벽에서 접근 허용 여부를 묻는다면 허용하라
+kubectl apply -f numbers/web-service.yaml
+
+# 서비스의 상세 정보를 확인한다
+kubectl get svc numbers-web
+
+# 애플리케이션의 URL을 EXTERNAL-IP 필드로 출력한다
+kubectl get svc numbers-web -o jsonpath='http://{.status.loadBalancer.ingress[0].*}:8080'
+-----------------------------------------------------
+
+# 현재 배포된 클러스터IP 서비스를 삭제한다
+kubectl delete svc numbers-api
+
+# 익스터널네임 서비스를 새로 배포한다
+kubectl apply -f numbers-services/api-service-externalName.yaml
+
+# 서비스의 상세 정보를 확인한다
+kubectl get svc numbers-api
+
+# 웹페이지를 새로고침한 다음 Go 버튼을 클릭한다
+-----------------------------------------------------
+
+# nslookup 명령으로 서비스의 도메인 네임을 조회한다
+kubectl exec deploy/sleep-1 -- sh -c 'nslookup numbers-api | tail -n 5'
+-----------------------------------------------------
+
+# 기존 서비스를 제거한다
+kubectl delete svc numbers-api
+
+# 헤드리스 서비스를 배포한다
+kubectl apply -f numbers-services/api-service-headless.yaml
+
+# 서비스의 상세 정보를 확인한다
+kubectl get svc numbers-api
+
+# 엔드포인트의 상세 정보를 확인한다
+kubectl get endpoints numbers-api
+
+# DNS 조회 결과를 확인한다
+kubectl exec deploy/sleep-1 -- sh -c 'nslookup numbers-api | grep "^[^*]"'
+
+# 웹 브라우저에서 웹 페이지를 확인한다
+# 새로운 무작위 숫자를 생성하면 오류가 발생한다
+-----------------------------------------------------
+
+# sleep-2 서비스의 엔드포인트 목록 출력
+kubectl get endpoints sleep-2
+
+# 파드 삭제
+kubectl delete pods -l app=sleep-2
+
+# 엔드포인트가 새로운 파드의 주소로 업데이트되었는지 확인
+kubectl get endpoints sleep-2
+
+# 디플로이먼트 채로 삭제
+kubectl delete deploy sleep-2
+
+# 엔드포인트는 여전히 있지만, 가리키는 IP 주소가 없음
+kubectl get endpoints sleep-2
+-----------------------------------------------------
+
+# default 네임스페이스의 서비스 리소스 목록 확인
+kubectl get svc --namespace default
+
+# 쿠버네티스 시스템 네임스페이스의 서비스 리소스 목록 확인
+kubectl get svc -n kube-system
+
+# 완전한 도메인 네임으로 DNS 조회하기
+kubectl exec deploy/sleep-1 -- sh -c 'nslookup numbers-api.default.svc.cluster.local | grep "^[^*]"'
+
+# 쿠버네티스 시스템 네임스페이스의 완전한 도메인 네임으로 DNS 조회하기
+kubectl exec deploy/sleep-1 -- sh -c 'nslookup kube-dns.kube-system.svc.cluster.local | grep "^[^*]"'
+-----------------------------------------------------
+
+# 모든 디플로이먼트 삭제
+kubectl delete deploy --all
+
+# 모든 서비스 삭제
+kubectl delete svc --all
+
+# 남아 있는 리소스 확인
+kubectl get all
+-----------------------------------------------------
+
+
+ 
+4장
+
+# 이번 장의 예제 코드로 디렉터리를 이동
+cd ch04
+
+# 설정값 없이 sleep 이미지로 파드 실행
+kubectl apply -f sleep/sleep.yaml
+
+# 파드가 준비될 때까지 대기
+kubectl wait --for=condition=Ready pod -l app=sleep
+
+# 파드 속 컨테이너에 설정된 몇 가지 환경 변수의 값을 확인
+kubectl exec deploy/sleep -- printenv HOSTNAME KIAMOL_CHAPTER
+-----------------------------------------------------
+
+# 디플로이먼트를 업데이트
+kubectl apply -f sleep/sleep-with-env.yaml
+
+# 조금 전과 같은 환경 변수의 값 확인
+kubectl exec deploy/sleep -- printenv HOSTNAME KIAMOL_CHAPTER
+-----------------------------------------------------
+
+# 명령행 도구를 사용해 컨피그맵 생성
+kubectl create configmap sleep-config-literal --from-literal=kiamol.section='4.1'
+
+# 컨피그맵에 들어 있는 데이터 확인
+kubectl get cm sleep-config-literal
+
+# 컨피그맵의 상세 정보를 보기 좋게 출력
+kubectl describe cm sleep-config-literal
+
+# 예제 4-2와 같이 정의가 수정된 파드 배치
+kubectl apply -f sleep/sleep-with-configMap-env.yaml
+
+# 파드 속의 환경 변수가 적용되었는지 확인
+kubectl exec deploy/sleep -- sh -c 'printenv | grep "^KIAMOL"'
+-----------------------------------------------------
+
+# 환경 파일의 내용으로 컨피그맵 생성
+kubectl create configmap sleep-config-env-file --from-env-file=sleep/ch04.env
+
+# 컨피그맵의 상세 정보 확인
+kubectl get cm sleep-config-env-file
+
+# 새로운 컨피그맵의 설정을 적용해 파드 업데이트
+kubectl apply -f sleep/sleep-with-configMap-env-file.yaml
+
+# 컨테이너에 적용된 환경 변수의 값 확인
+kubectl exec deploy/sleep -- sh -c 'printenv | grep "^KIAMOL"'
+-----------------------------------------------------
+
+# 서비스와 함께 애플리케이션 배치
+kubectl apply -f todo-list/todo-web.yaml
+
+# 파드가 준비 상태가 될 때까지 대기
+kubectl wait --for=condition=Ready pod -l app=todo-web
+
+# 애플리케이션에 접근하기 위한 주소를 파일로 출력
+kubectl get svc todo-web -o jsonpath='http://{.status.loadBalancer.ingress[0].*}:8080'
+
+# 웹 브라우저에서 애플리케이션에 접근한 다음, 기능을 점검
+# 그 다음 경로 /config에 접근
+
+# 애플리케이션 로그 확인
+kubectl logs -l app=todo-web
+-----------------------------------------------------
+
+# JSON이 담긴 컨피그맵 생성
+kubectl apply -f todo-list/configMaps/todo-web-config-dev.yaml
+
+# 컨피그맵을 참조하도록 애플리케이션 업데이트
+kubectl apply -f todo-list/todo-web-dev.yaml
+
+# 웹 브라우저에서 /config 페이지 새로고침
+-----------------------------------------------------
+
+# 기본 설정값이 담긴 설정 파일 확인
+kubectl exec deploy/todo-web -- sh -c 'ls -l /app/app*.json'
+
+# 볼륨 마운트로 주입된 설정 파일 확인
+kubectl exec deploy/todo-web -- sh -c 'ls -l /app/config/*.json'
+
+# 볼륨 마운트가 실제로 읽기 전용인지 확인
+kubectl exec deploy/todo-web -- sh -c 'echo ch04 >> /app/config/config.json'
+-----------------------------------------------------
+
+# 애플리케이션 로그 확인
+kubectl logs -l app=todo-web
+
+# 컨피그맵 업데이트
+kubectl apply -f todo-list/configMaps/todo-web-config-dev-with-logging.yaml
+
+# 업데이트된 컨피그맵이 파드에 반영될 때까지 대기
+sleep 120
+
+# 설정 파일에 반영되었는지 확인
+kubectl exec deploy/todo-web -- sh -c 'ls -l /app/config/*.json'
+
+# 애플리케이션에 접근해 로그 출력이 변화했는지 확인
+kubectl logs -l app=todo-web
+-----------------------------------------------------
+
+# 설정에 오류가 있는 파드 배치
+kubectl apply -f todo-list/todo-web-dev-broken.yaml
+
+# 웹 브라우저로 돌아가 애플리케이션이 동작하는지 확인
+
+# 애플리케이션 로그 확인
+kubectl logs -l app=todo-web
+
+# 파드 상태도 확인
+kubectl get pods -l app=todo-web
+-----------------------------------------------------
+
+# 변경된 정의 배치
+kubectl apply -f todo-list/todo-web-dev-no-logging.yaml
+
+# /app/config 디렉터리의 내용 확인
+kubectl exec deploy/todo-web -- sh -c 'ls /app/config'
+
+# 애플리케이션에서 페이지를 두어 번 새로고침한다
+
+# 출력되는 로그 확인
+kubectl logs -l app=todo-web
+
+# 파드의 목록과 상태 확인
+kubectl get pods -l app=todo-web
+-----------------------------------------------------
+
+# 윈도우 사용자는 base64 명령 대신 이 스크립트를 사용할 것
+. .\base64.ps1
+
+# 평문 리터럴로 비밀값 생성
+kubectl create secret generic sleep-secret-literal --from-literal=secret=shh...
+
+# 비밀값의 상세 정보 확인
+kubectl describe secret sleep-secret-literal
+
+# 비밀값의 평문 확인(base64 인코딩됨)
+kubectl get secret sleep-secret-literal -o jsonpath='{.data.secret}'
+
+# 비밀값의 평문 확인
+kubectl get secret sleep-secret-literal -o jsonpath='{.data.secret}' | base64 -d
+-----------------------------------------------------
+
+# sleep 디플로이먼트 업데이트
+kubectl apply -f sleep/sleep-with-secret.yaml
+
+# 파드 속의 환경 변수 확인
+kubectl exec deploy/sleep -- printenv KIAMOL_SECRET
+-----------------------------------------------------
+
+# 비밀값 생성
+kubectl apply -f todo-list/secrets/todo-db-secret-test.yaml
+
+# 데이터 값이 인코딩되었는지 확인
+kubectl get secret todo-db-secret-test -o jsonpath='{.data.POSTGRES_PASSWORD}'
+
+# 비밀값 객체의 애너테이션에 저장된 내용 확인
+kubectl get secret todo-db-secret-test -o jsonpath='{.metadata.annotations}'
+-----------------------------------------------------
+
+# 예제 4-13의 정의 배치
+kubectl apply -f todo-list/todo-db-test.yaml
+
+# 데이터베이스 파드의 로그 확인(조금 기다려야 한다)
+kubectl logs -l app=todo-db --tail 1
+
+# 패스워드 설정 파일의 권한 확인
+kubectl exec deploy/todo-db -- sh -c 'ls -l $(readlink -f /secrets/postgres_password)'
+-----------------------------------------------------
+
+# PostgreSQL 데이터베이스를 사용하도록 설정된 컨피그맵을 배치한다
+kubectl apply -f todo-list/configMaps/todo-web-config-test.yaml
+
+# PostgreSQL 데이터베이스에 접속할 인증 정보가 들어 있는 비밀값을 배치한다
+kubectl apply -f todo-list/secrets/todo-web-secret-test.yaml
+
+# 디플로이먼트 속 파드는 위의 컨피그맵과 비밀값을 사용하도록 설정됐다
+kubectl apply -f todo-list/todo-web-test.yaml
+
+# 애플리케이션 컨테이너 속 데이터베이스 인증 정보 파일을 확인한다
+kubectl exec deploy/todo-web-test -- cat /app/secrets/secrets.json
+
+# 애플리케이션에 접근해 할 일을 몇 가지 추가한다
+-----------------------------------------------------
+
+# 다음 모든 디렉터리 안에 있는 모든 YAML 파일에 정의된 모든 리소스를 삭제한다
+kubectl delete -f sleep/
+kubectl delete -f todo-list/
+kubectl delete -f todo-list/configMaps/
+kubectl delete -f todo-list/secrets/
+-----------------------------------------------------
+5장
+
+# 이번 장의 예제 코드 디렉터리로 이동
+cd ch05
+
+# sleep 파드를 배치한다
+kubectl apply -f sleep/sleep.yaml
+
+# 컨테이너 속에 파일 하나를 생성한다
+kubectl exec deploy/sleep -- sh -c 'echo ch05 > /file.txt; ls /*.txt'
+
+# 컨테이너 ID를 확인한다
+kubectl get pod -l app=sleep -o jsonpath='{.items[0].status.containerStatuses[0].containerID}'
+
+# 파드가 재시작하도록 컨테이너의 모든 프로세스를 강제 종료한다
+kubectl exec -it deploy/sleep -- killall5
+
+# 대체된 컨테이너의 ID를 확인한다
+kubectl get pod -l app=sleep -o jsonpath='{.items[0].status.containerStatuses[0].containerID}'
+
+# 조금 전 생성했던 파일이 사라졌다
+kubectl exec deploy/sleep -- ls /*.txt
+-----------------------------------------------------
+
+# 공디렉터리 볼륨을 사용하도록 sleep 파드 업데이트
+kubectl apply -f sleep/sleep-with-emptyDir.yaml
+
+# 볼륨 마운트 속 파일 목록 확인
+kubectl exec deploy/sleep -- ls /data
+
+# 빈 디렉터리에 파일 하나 생성
+kubectl exec deploy/sleep -- sh -c 'echo ch05 > /data/file.txt; ls /data'
+
+# 컨테이너 ID 확인
+kubectl get pod -l app=sleep -o jsonpath='{.items[0].status.containerStatuses[0].containerID}'
+
+# 컨테이너 프로세스 강제 종료
+kubectl exec deploy/sleep -- killall5
+
+# 대체 컨테이너의 ID가 바뀌었는지 확인
+kubectl get pod -l app=sleep -o jsonpath='{.items[0].status.containerStatuses[0].containerID}'
+
+# 볼륨이 마운트된 경로의 파일 내용 확인
+kubectl exec deploy/sleep -- cat /data/file.txt
+-----------------------------------------------------
+
+# 파이 애플리케이션을 배치한다
+kubectl apply -f pi/v1/
+
+# 파드가 준비 상태가 될 때까지 대기한다
+kubectl wait --for=condition=Ready pod -l app=pi-web
+
+# 로드밸런서 서비스의 URL을 출력한다
+kubectl get svc pi-proxy -o jsonpath='http://{.status.loadBalancer.ingress[0].*}:8080/?dp=30000'
+
+# 위 URL에 접근한 다음 페이지를 새로고침하라
+
+# 프록시에 저장된 캐시를 확인한다
+kubectl exec deploy/pi-proxy -- ls -l /data/nginx/cache
+-----------------------------------------------------
+
+# 프록시 파드를 삭제한다
+kubectl delete pod -l app=pi-proxy
+
+# 새로 생성된 대체 파드의 캐시 디렉터리 내용을 확인한다
+kubectl exec deploy/pi-proxy -- ls -l /data/nginx/cache
+
+# 파이 애플리케이션의 페이지를 새로고침하라
+-----------------------------------------------------
+
+# 호스트경로 볼륨을 사용하도록 프록시 파드 업데이트
+kubectl apply -f pi/nginx-with-hostPath.yaml
+
+# 프록시 파드 속 캐시 디렉터리 내용 확인
+kubectl exec deploy/pi-proxy -- ls -l /data/nginx/cache
+
+# 웹 브라우저에서 애플리케이션 URL에 접근
+
+# 프록시 파드를 강제로 삭제
+kubectl delete pod -l app=pi-proxy
+
+# 새로 만들어진 프록시 파드의 캐시 디렉터리 내용을 확인
+kubectl exec deploy/pi-proxy -- ls -l /data/nginx/cache
+
+# 애플리케이션을 새로고침
+-----------------------------------------------------
+
+# 호스트경로 볼륨이 마운트된 파드 실행
+kubectl apply -f sleep/sleep-with-hostPath.yaml
+
+# 컨테이너 속 로그 파일 확인
+kubectl exec deploy/sleep -- ls -l /var/log
+
+# 노드 파일 시스템의 로그 파일 내용 확인
+kubectl exec deploy/sleep -- ls -l /node-root/var/log
+
+# 컨테이너의 사용자명 확인
+kubectl exec deploy/sleep -- whoami
+-----------------------------------------------------
+
+# 파드 업데이트
+kubectl apply -f sleep/sleep-with-hostPath-subPath.yaml
+
+# 노드 파일 시스템에서 파드의 로그 확인
+kubectl exec deploy/sleep -- sh -c 'ls /pod-logs | grep _pi-'
+
+# 컨테이너 로그 확인
+kubectl exec deploy/sleep -- sh -c 'ls /container-logs | grep nginx'
+-----------------------------------------------------
+
+# 클러스터의 첫 번째 노드에 레이블을 부여
+kubectl label node $(kubectl get nodes -o jsonpath='{.items[0].metadata.name}') kiamol=ch05
+
+# 레이블 셀렉터로 노드의 존재 확인
+kubectl get nodes -l kiamol=ch05
+
+# 레이블이 부여된 노드의 로컬 볼륨을 사용하는 영구볼륨을 배치
+kubectl apply -f todo-list/persistentVolume.yaml
+
+# 영구볼륨의 상세정보 확인
+kubectl get pv
+-----------------------------------------------------
+
+# 영구볼륨과 연결될 영구볼륨클레임을 생성
+kubectl apply -f todo-list/postgres-persistentVolumeClaim.yaml
+
+# 영구볼륨클레임의 목록 확인
+kubectl get pvc
+
+# 영구볼륨의 목록 확인
+kubectl get pv
+-----------------------------------------------------
+
+# 현재 사용 가능한 영구볼륨 중 일치하는 것이 없는 영구볼륨클레임을 배치
+kubectl apply -f todo-list/postgres-persistentVolumeClaim-too-big.yaml
+
+# 영구볼륨클레임의 목록 확인
+kubectl get pvc
+-----------------------------------------------------
+
+# 노드의 디스크에 접근할 수 있는 sleep 파드를 실행
+kubectl apply -f sleep/sleep-with-hostPath.yaml
+
+# 파드가 준비될 때까지 대기
+kubectl wait --for=condition=Ready pod -l app=sleep
+
+# 영구볼륨에서 사용할 디렉터리를 생성
+kubectl exec deploy/sleep -- mkdir -p /node-root/volumes/pv01
+-----------------------------------------------------
+
+# 데이터베이스 파드를 배치
+kubectl apply -f todo-list/postgres/
+
+# 데이터베이스 파일이 초기화될 때까지 대기
+sleep 30
+
+# 데이터베이스 파드의 로그를 확인
+kubectl logs -l app=todo-db --tail 1
+
+# 볼륨에 어떤 파일이 생성됐는지 확인
+kubectl exec deploy/sleep -- sh -c 'ls -l /node-root/volumes/pv01 | grep wal'
+-----------------------------------------------------
+
+# 애플리케이션의 웹 파드를 배치
+kubectl apply -f todo-list/web/
+
+# 파드가 준비될 때까지 대기
+kubectl wait --for=condition=Ready pod -l app=todo-web
+
+# 애플리케이션 URL 확인
+kubectl get svc todo-web -o jsonpath='http://{.status.loadBalancer.ingress[0].*}:8081/new'
+
+# 웹 브라우저에서 애플리케이션에 접근해, 새 할 일 추가
+
+# 데이터베이스 파드를 강제 삭제
+kubectl delete pod -l app=todo-db
+
+# 볼륨에 기록된 데이터 확인
+kubectl exec deploy/sleep -- ls -l /node-root/volumes/pv01/pg_wal
+
+# 웹 애플리케이션에서 조금 전 추가한 할 일이 그대로 남아 있는지 확인
+-----------------------------------------------------
+
+# 예제 5-8에 정의된 영구볼륨클레임을 배치
+kubectl apply -f todo-list/postgres-persistentVolumeClaim-dynamic.yaml
+
+# 클레임과 볼륨의 목록을 확인
+kubectl get pvc
+kubectl get pv
+
+# 영구볼륨클레임을 삭제
+kubectl delete pvc postgres-pvc-dynamic
+
+# 볼륨의 목록을 다시 확인
+kubectl get pv
+-----------------------------------------------------
+
+# 클러스터에 정의된 스토리지 유형의 목록을 확인
+kubectl get storageclass
+
+# 기본 스토리지 유형을 복제 (윈도우)
+Set-ExecutionPolicy Bypass -Scope Process -Force; ./cloneDefaultStorageClass.ps1
+
+# 기본 스토리지 유형을 복제 (macOS / 리눅스)
+chmod +x cloneDefaultStorageClass.sh && ./cloneDefaultStorageClass.sh
+
+# 클러스터에 정의된 스토리지 유형의 목록을 다시 확인
+kubectl get sc
+-----------------------------------------------------
+
+# 사용자 정의 스토리지 유형이 사용된 영구볼륨클레임을 생성
+kubectl apply -f storageClass/postgres-persistentVolumeClaim-storageClass.yaml
+
+# 위의 클레임을 사용하도록 데이터베이스 파드를 업데이트
+kubectl apply -f storageClass/todo-db.yaml
+
+# 스토리지 관련 리소스를 확인
+kubectl get pvc
+kubectl get pv
+
+# 파드의 상세 정보를 확인
+kubectl get pods -l app=todo-db
+
+# to-do 애플리케이션의 목록 페이지를 새로고침한다
+-----------------------------------------------------
+
+# 디플로이먼트, 영구볼륨,
+# 영구볼륨클레임, 서비스를 모두 삭제
+kubectl delete -f pi/v1 -f sleep/ -f storageClass/ -f todo-list/web -f todo-list/postgres -f todo-list/
+
+# 사용자 정의 스토리지 유형을 삭제
+kubectl delete sc kiamol
+-----------------------------------------------------
+
+
+
+6장
+
+# 이번 장의 예제 코드 디렉터리로 이동
+cd ch06
+
+# 레플리카셋과 서비스를 배치
+kubectl apply -f whoami/
+
+# 배치된 리소스를 확인
+kubectl get replicaset whoami-web
+
+# 서비스로 HTTP GET 요청을 전달
+curl $(kubectl get svc whoami-web -o jsonpath='http://{.status.loadBalancer.ingress[0].*}:8088') -UseBasicParsing
+
+# 파드를 모두 삭제
+kubectl delete pods -l app=whoami-web
+
+# HTTP GET 요청을 다시 한 번 전달
+curl $(kubectl get svc whoami-web -o jsonpath='http://{.status.loadBalancer.ingress[0].*}:8088') -UseBasicParsing
+
+# 레플리카셋의 정보를 확인
+kubectl describe rs whoami-web
+-----------------------------------------------------
+
+# 레플리카 수가 변경된 정의를 배치
+kubectl apply -f whoami/update/whoami-replicas-3.yaml
+
+# 파드의 목록을 확인
+kubectl get pods -l app=whoami-web
+
+# 모든 파드를 삭제
+kubectl delete pods -l app=whoami-web
+
+# 파드의 목록을 다시 확인
+kubectl get pods -l app=whoami-web
+
+# HTTP 요청을 몇 번 더 반복
+curl $(kubectl get svc whoami-web -o jsonpath='http://{.status.loadBalancer.ingress[0].*}:8088') -UseBasicParsing
+-----------------------------------------------------
+
+# sleep 파드를 하나 실행
+kubectl apply -f sleep.yaml
+
+# whoami-web 서비스의 상세 정보 확인
+kubectl get svc whoami-web
+
+# sleep 파드에서 서비스 이름으로 DNS 조회
+kubectl exec deploy/sleep -- sh -c 'nslookup whoami-web | grep "^[^*]"'
+
+# whoami-web 서비스로 HTTP 요청
+kubectl exec deploy/sleep -- sh -c 'for i in 1 2 3; do curl -w \\n -s http://whoami-web:8088; done;'
+-----------------------------------------------------
+
+# 원주율 웹 애플리케이션을 배치
+kubectl apply -f pi/web/
+
+# 레플리카셋의 상태를 확인
+kubectl get rs -l app=pi-web
+
+# 레플리카를 늘려 스케일링을 적용
+kubectl apply -f pi/web/update/web-replicas-3.yaml
+
+# 레플리카셋의 상태를 다시 확인
+kubectl get rs -l app=pi-web
+
+# 로그 설정이 추가된 새로운 파드의 정의를 적용
+kubectl apply -f pi/web/update/web-logging-level.yaml
+
+# 레플리카셋의 상태를 다시 확인
+kubectl get rs -l app=pi-web
+-----------------------------------------------------
+
+# 원주율 애플리케이션을 신속하게 스케일링해야 한다
+kubectl scale --replicas=4 deploy/pi-web
+
+# 어떤 레플리카셋이 변경되는지 확인한다
+kubectl get rs -l app=pi-web
+
+# 로그 수준을 원래대로 되돌려도 된다
+kubectl apply -f pi/web/update/web-replicas-3.yaml
+
+# 하지만 이 과정에서 수동 스케일링도 원복된다
+kubectl get rs -l app=pi-web
+
+# 파드 상태를 확인한다
+kubectl get pods -l app=pi-web
+-----------------------------------------------------
+
+# 레플리카셋과 레이블 확인
+kubectl get rs -l app=pi-web --show-labels
+
+# 파드와 레이블 확인
+kubectl get po -l app=pi-web --show-labels
+-----------------------------------------------------
+
+# 프록시 디플로이먼트를 생성
+kubectl apply -f pi/proxy/
+
+# 프록시가 적용된 애플리케이션의 URL을 확인
+kubectl get svc whoami-web -o jsonpath='http://{.status.loadBalancer.ingress[0].*}:8080/?dp=10000'
+
+# 웹 브라우저에서 애플리케이션에 접근해
+# 소숫점 이하 자리수(dp)를 바꿔가며 원주율을 구하라
+-----------------------------------------------------
+
+# 프록시 파드를 업데이트
+kubectl apply -f pi/proxy/update/nginx-hostPath.yaml
+
+# 파드의 수를 확인 - 새 정의의 레플리카 수는 세 개다
+kubectl get po -l app=pi-proxy
+
+# 원주율 애플리케이션으로 돌아가 페이지를 몇 번 새로고침하라
+
+# 프록시의 로그를 확인하라
+kubectl logs -l app=pi-proxy --tail 1
+-----------------------------------------------------
+
+# 데몬셋을 배치
+kubectl apply -f pi/proxy/daemonset/nginx-ds.yaml
+
+# 프록시 서비스에 등록된 엔드포인트를 확인
+kubectl get endpoints pi-proxy
+
+# 디플로이먼트를 삭제
+kubectl delete deploy pi-proxy
+
+# 데몬셋의 상세 정보를 확인
+kubectl get daemonset pi-proxy
+
+# 파드의 상태를 확인
+kubectl get po -l app=pi-proxy
+
+# 웹 브라우저에서 페이지를 새로고침하라
+-----------------------------------------------------
+
+# 데몬셋의 상태를 확인
+kubectl get ds pi-proxy
+
+# 프록시 파드를 수동으로 삭제
+kubectl delete po -l app=pi-proxy
+
+# 파드의 목록을 확인
+kubectl get po -l app=pi-proxy
+-----------------------------------------------------
+
+# 데몬셋을 업데이트
+kubectl apply -f pi/proxy/daemonset/nginx-ds-nodeSelector.yaml
+
+# 데몬셋의 상태를 확인
+kubectl get ds pi-proxy
+
+# 파드의 상태를 확인
+kubectl get po -l app=pi-proxy
+
+# 셀렉터와 일치하는 레이블을 노드에 부여
+kubectl label node $(kubectl get nodes -o jsonpath='{.items[0].metadata.name}') kiamol=ch06 --overwrite
+
+# 파드의 상태를 다시 확인
+kubectl get ds pi-proxy
+-----------------------------------------------------
+
+# 관리 대상 파드는 남겨 두고 데몬셋을 삭제
+kubectl delete ds pi-proxy --cascade=false
+
+# 파드의 상태를 확인
+kubectl get po -l app=pi-proxy
+
+# 데몬셋을 다시 생성
+kubectl apply -f pi/proxy/daemonset/nginx-ds-nodeSelector.yaml
+
+# 데몬셋과 파드의 상태를 확인
+kubectl get ds pi-proxy
+kubectl get po -l app=pi-proxy
+
+# cascade 옵션 없이 데몬셋을 삭제
+kubectl delete ds pi-proxy
+
+# 파드의 상태를 확인
+kubectl get po -l app=pi-proxy
+-----------------------------------------------------
+
+# 각 파드의 관리 주체 리소스를 확인
+kubectl get po -o custom-columns=NAME:'{.metadata.name}',OWNER:'{.metadata.ownerReferences[0].name}',OWNER_KIND:'{.metadata.ownerReferences[0].kind}'
+
+# 각 레플리카셋의 관리 주체 리소스를 확인
+kubectl get rs -o custom-columns=NAME:'{.metadata.name}',OWNER:'{.metadata.ownerReferences[0].name}',OWNER_KIND:'{.metadata.ownerReferences[0].kind}'
+-----------------------------------------------------
+
+# 모든 컨트롤러 리소스 및 서비스를 삭제
+kubectl delete all -l kiamol=ch06
+
+
+
+7장
+
+# 예제 코드 디렉터리로 이동
+cd ch07
+
+# 파드를 배치
+kubectl apply -f sleep/sleep-with-file-reader.yaml
+
+# 파드의 상세 정보를 확인
+kubectl get pod -l app=sleep -o wide
+
+# 컨테이너 이름을 출력
+kubectl get pod -l app=sleep -o jsonpath='{.items[0].status.containerStatuses[*].name}'
+
+# 파드의 로그를 확인 - 오류 발생
+kubectl logs -l app=sleep
+-----------------------------------------------------
+
+# 한쪽 컨테이너에서 공유 볼륨으로 파일을 기록
+kubectl exec deploy/sleep -c sleep -- sh -c 'echo ${HOSTNAME} > /data-rw/hostname.txt'
+
+# 같은 컨테이너에서 기록한 파일을 읽음
+kubectl exec deploy/sleep -c sleep -- cat /data-rw/hostname.txt
+
+# 다른 쪽 컨테이너에서 기록한 파일을 읽음
+kubectl exec deploy/sleep -c file-reader -- cat /data-ro/hostname.txt
+
+# 읽기 전용으로 볼륨을 마운트한 컨테이너에서
+# 파일을 쓰려고 하면 오류가 발생함
+kubectl exec deploy/sleep -c file-reader -- sh -c 'echo more >> /data-ro/hostname.txt'
+-----------------------------------------------------
+
+# 파드를 업데이트
+kubectl apply -f sleep/sleep-with-server.yaml
+
+# 파드의 상태를 확인
+kubectl get pods -l app=sleep
+
+# 업데이트된 파드 속의 컨테이너 이름을 확인
+kubectl get pod -l app=sleep -o jsonpath='{.items[0].status.containerStatuses[*].name}'
+
+# sleep 컨테이너에서 서버 컨테이너로 통신
+kubectl exec deploy/sleep -c sleep -- wget -q -O - localhost:8080
+
+# 서버 컨테이너의 로그를 확인
+kubectl logs -l app=sleep -c server
+-----------------------------------------------------
+
+# 서버 컨테이너의 포트를 가리키는 서비스를 생성
+kubectl expose -f sleep/sleep-with-server.yaml --type LoadBalancer --port 8020 --target-port 8080
+
+# 서비스의 URL을 출력
+kubectl get svc sleep -o jsonpath='http://{.status.loadBalancer.ingress[0].*}:8020'
+
+# 웹 브라우저에서 출력된 URL에 접근
+
+# 서버 컨테이너의 로그를 확인
+kubectl logs -l app=sleep -c server
+-----------------------------------------------------
+
+
+# 초기화 컨테이너가 추가된 정의를 배치
+kubectl apply -f sleep/sleep-with-html-server.yaml
+
+# 파드 컨테이너를 확인
+kubectl get pod -l app=sleep -o jsonpath='{.items[0].status.containerStatuses[*].name}'
+
+# 초기화 컨테이너를 확인
+kubectl get pod -l app=sleep -o jsonpath='{.items[0].status.initContainerStatuses[*].name}'
+
+# 초기화 컨테이너의 로그를 확인 -- 로그 없음
+kubectl logs -l app=sleep -c init-html
+
+# 사이드카 컨테이너에서 
+# 초기화 컨테이너가 생성한 파일에 접근 가능한지 확인
+kubectl exec deploy/sleep -c server -- ls -l /data-ro
+-----------------------------------------------------
+
+# 단일 설정 파일만 사용하는 애플리케이션 실행
+kubectl apply -f timecheck/timecheck.yaml
+
+# 컨테이너 로그 확인 - 현재 로그 없음 
+kubectl logs -l app=timecheck
+
+# 컨테이너 안에서 로그 확인
+kubectl exec deploy/timecheck -- cat /logs/timecheck.log
+
+# 애플리케이션 설정 확인
+kubectl exec deploy/timecheck -- cat /config/appsettings.json
+-----------------------------------------------------
+
+# 컨피그맵을 배치하고, 디플로이먼트의 정의를 업데이트
+kubectl apply -f timecheck/timecheck-configMap.yaml -f timecheck/timecheck-with-config.yaml
+
+# 컨테이너가 준비될 때까지 대기
+kubectl wait --for=condition=ContainersReady pod -l app=timecheck,version=v2
+
+# 새로운 애플리케이션 컨테이너의 로그를 확인
+kubectl exec deploy/timecheck -- cat /logs/timecheck.log
+
+# 초기화 컨테이너가 생성한 설정 파일을 확인
+kubectl exec deploy/timecheck -- cat /config/appsettings.json
+-----------------------------------------------------
+
+# 사이드카 컨테이너 추가
+kubectl apply -f timecheck/timecheck-with-logging.yaml
+
+# 컨테이너가 준비될 때까지 대기
+kubectl wait --for=condition=ContainersReady pod -l app=timecheck,version=v3
+
+# 파드의 상태 확인
+kubectl get pods -l app=timecheck
+
+# 파드 속 컨테이너의 상태 확인
+kubectl get pod -l app=timecheck -o jsonpath='{.items[0].status.containerStatuses[*].name}'
+
+# 파드의 로그를 확인할 수 있다
+kubectl logs -l app=timecheck -c logger
+-----------------------------------------------------
+
+# 파드 업데이트
+kubectl apply -f timecheck/timecheck-good-citizen.yaml
+
+# 컨테이너가 준비될 때까지 대기
+kubectl wait --for=condition=ContainersReady pod -l app=timecheck,version=v4
+
+# 컨테이너의 상태 확인
+kubectl get pod -l app=timecheck -o jsonpath='{.items[0].status.containerStatuses[*].name}'
+
+# sleep 컨테이너에서 timecheck 애플리케이션의 헬스체크 API를 사용
+kubectl exec deploy/sleep -c sleep -- wget -q -O - http://timecheck:8080
+
+# sleep 컨테이너에서 성능 지표 API를 사용
+kubectl exec deploy/sleep -c sleep -- wget -q -O - http://timecheck:8081
+-----------------------------------------------------
+
+# 애플리케이션 및 서비스 배치
+kubectl apply -f numbers/
+
+# 애플리케이션에 접근할 URL 확인
+kubectl get svc numbers-web -o jsonpath='http://{.status.loadBalancer.ingress[0].*}:8090'
+
+# 애플리케이션에 접근해 무작위 숫자를 생성
+
+# 웹 애플리케이션에서 다른 엔드포인트에 접근 가능한지 확인
+kubectl exec deploy/numbers-web -c web -- wget -q -O - http://timecheck:8080
+-----------------------------------------------------
+
+# 예제 7-5의 수정된 정의 배치
+kubectl apply -f numbers/update/web-with-proxy.yaml
+
+# 웹페이지를 새로고침한 다음, 숫자를 생성한다
+
+# 프록시 컨테이너의 로그를 확인
+kubectl logs -l app=numbers-web -c proxy
+
+# timecheck 애플리케이션의 헬스체크 엔드포인트에 접근
+kubectl exec deploy/numbers-web -c web -- wget -q -O - http://timecheck:8080
+
+# 프록시 컨테이너의 로그를 확인
+kubectl logs -l app=numbers-web -c proxy
+-----------------------------------------------------
+
+# 애플리케이션 업데이트
+kubectl apply -f numbers/update/web-v2-broken-init-container.yaml
+
+# 새로 생성되는 파드를 확인
+kubectl get po -l app=numbers-web,version=v2
+
+# 새로 생성된 초기화 컨테이너의 로그를 확인
+kubectl logs -l app=numbers-web,version=v2 -c init-version
+
+# 디플로이먼트의 상태를 확인
+kubectl get deploy numbers-web
+
+# 레플리카셋의 상태를 확인
+kubectl get rs -l app=numbers-web
+-----------------------------------------------------
+
+# 현재 컨테이너의 프로세스를 확인
+kubectl exec deploy/sleep -c sleep -- ps
+
+# 파드를 업데이트
+kubectl apply -f sleep/sleep-with-server-shared.yaml
+
+# 새 컨테이너가 준비될 때까지 대기
+kubectl wait --for=condition=ContainersReady pod -l app=sleep,version=shared
+
+# 프로세스를 다시 한 번 확인(조금 기다려야 한다)
+kubectl exec deploy/sleep -c sleep -- ps
+-----------------------------------------------------
+
+kubectl delete all -l kiamol=ch07
+
+
+
+8장
+
+# 이번 장의 소스 코드 디렉터리로 이동
+cd ch08
+
+# 스테이트풀셋, 서비스, 비밀값(데이터베이스 패스워드)을 배치
+kubectl apply -f todo-list/db/
+
+# 스테이트풀셋을 확인
+kubectl get statefulset todo-db
+
+# 파드를 확인
+kubectl get pods -l app=todo-db
+
+# 파드 0의 호스트명을 확인
+kubectl exec pod/todo-db-0 -- hostname
+
+# 파드 1의 로그를 확인
+kubectl logs todo-db-1 --tail 1
+-----------------------------------------------------
+
+# 0번 파드의 내부 식별자를 확인
+kubectl get pod todo-db-0 -o jsonpath='{.metadata.uid}'
+
+# 파드를 수동으로 삭제
+kubectl delete pod todo-db-0
+
+# 파드를 확인
+kubectl get pods -l app=todo-db
+
+# 새로운 파드의 식별자가 달라졌는지 확인
+kubectl get pod todo-db-0 -o jsonpath='{.metadata.uid}'
+-----------------------------------------------------
+
+# 서비스 상세 정보 확인
+kubectl get svc todo-db
+
+# 도메인 조회를 위해 sleep 파드 실행
+kubectl apply -f sleep/sleep.yaml
+
+# 서비스 이름으로 도메인 조회
+kubectl exec deploy/sleep -- sh -c 'nslookup todo-db | grep "^[^*]"'
+
+# 0번 파드에 대한 도메인 조회
+kubectl exec deploy/sleep -- sh -c 'nslookup todo-db-0.todo-db.default.svc.cluster.local | grep "^[^*]"'
+-----------------------------------------------------
+
+# 복제본 설정이 된 스테이트풀셋을 배치
+kubectl apply -f todo-list/db/replicated/
+
+# 파드가 준비될 때까지 대기
+kubectl wait --for=condition=Ready pod -l app=todo-db
+
+# 파드 0(주 인스턴스)의 로그를 확인(조금 기다려야 한다)
+kubectl logs todo-db-0 --tail 1
+
+# 파드 1(부 인스턴스)의 로그를 확인
+kubectl logs todo-db-1 --tail 2
+-----------------------------------------------------
+
+# 레플리카를 하나 더 추가
+kubectl scale --replicas=3 statefulset/todo-db
+
+# 파드 2가 준비될 때까지 대기
+kubectl wait --for=condition=Ready pod -l app=todo-db
+
+# 추가된 파드가 부 인스턴스로 설정되는지 확인
+kubectl logs todo-db-2 --tail 2
+-----------------------------------------------------
+
+# 볼륨 클레임 템플릿이 포함된 스테이트풀셋을 배치
+kubectl apply -f sleep/sleep-with-pvc.yaml
+
+# 영구볼륨클레임이 생성되는지 확인
+kubectl get pvc
+
+# 파드 0의 영구볼륨클레임 마운트에 데이터를 기록
+kubectl exec sleep-with-pvc-0 -- sh -c 'echo Pod 0 > /data/pod.txt'
+
+# 파드 0에서 데이터를 읽을 수 있는지 확인
+kubectl exec sleep-with-pvc-0 -- cat /data/pod.txt
+
+# 파드 1에서는 해당 데이터를 읽을 수 없음
+kubectl exec sleep-with-pvc-1 -- cat /data/pod.txt
+-----------------------------------------------------
+
+# 파드를 수동으로 삭제
+kubectl delete pod sleep-with-pvc-0
+
+# 대체 파드가 생성되는지 확인
+kubectl get pods -l app=sleep-with-pvc
+
+# 대체 파드가 이전의 데이터를 유지하는지 확인
+kubectl exec sleep-with-pvc-0 -- cat /data/pod.txt
+-----------------------------------------------------
+
+# 볼륨 클레임 템플릿이 포함된 업데이트를 배치
+kubectl apply -f todo-list/db/replicated/update/todo-db-pvc.yaml
+
+# 기존 스테이트풀셋을 삭제
+kubectl delete statefulset todo-db
+
+# 볼륨 클레임 템플릿이 포함된 새로운 스테이트풀셋을 생성
+kubectl apply -f todo-list/db/replicated/update/todo-db-pvc.yaml
+
+# 볼륨 클레임을 확인
+kubectl get pvc -l app=todo-db
+-----------------------------------------------------
+
+# 웹 애플리케이션을 배치
+kubectl apply -f todo-list/web/
+
+# 애플리케이션의 URL 확인
+kubectl get svc todo-web -o jsonpath='http://{.status.loadBalancer.ingress[0].*}:8081/new'
+
+# 웹 애플리케이션에서 할 일 항목을 몇 가지 추가
+
+# 데이터베이스의 부 인스턴스를 사용하도록 해서
+# 애플리케이션을 읽기 전용 모드로 전환
+kubectl apply -f todo-list/web/update/todo-web-readonly.yaml
+
+# /new 페이지를 새로 고침하면 읽기 전용 모드가 되며
+# 원래 있던 데이터가 그대로 있을 것이다
+
+# 파드 0에 접속한 클라이언트가 있는지 확인
+kubectl exec -it todo-db-0 -- sh -c "psql -U postgres -t -c 'SELECT datname, query FROM pg_stat_activity WHERE datid > 0'"
+
+# 웹 애플리케이션이 실제로 파드 1의 부 인스턴스를 사용하는지 확인
+kubectl exec -it todo-db-1 -- sh -c "psql -U postgres -t -c 'SELECT datname, query FROM pg_stat_activity WHERE datid > 0'"
+-----------------------------------------------------
+
+# 잡을 배치
+kubectl apply -f pi/pi-job.yaml
+
+# 파드의 로그를 확인 
+kubectl logs -l job-name=pi-job
+
+# 잡의 상태를 확인
+kubectl get job pi-job
+-----------------------------------------------------
+
+# 업데이트된 잡을 배치
+kubectl apply -f pi/pi-job-random.yaml
+
+# 파드의 상태를 확인
+kubectl get pods -l job-name=pi-job-random
+
+# 잡의 상태를 확인
+kubectl get job pi-job-random
+
+# 각 파드의 로그를 출력
+kubectl logs -l job-name=pi-job-random
+-----------------------------------------------------
+
+# 크론잡과 백업 파일을 저장할 영구볼륨클레임을 배치
+kubectl apply -f todo-list/db/backup/
+
+# 작업이 실행될 때까지 대기 -- 차를 한 잔 마시고 오면 적당하다
+sleep 150
+
+# 크론잡의 상태를 확인
+kubectl get cronjob todo-db-backup
+
+# 백업에 사용된 영구볼륨클레임이 마운트된
+# sleep 파드를 실행
+kubectl apply -f sleep/sleep-with-db-backup-mount.yaml
+
+# 백업이 생성되었는지 확인
+kubectl exec deploy/sleep -- ls -l /backup
+-----------------------------------------------------
+
+# 크론잡을 업데이트해 보류 모드로 설정
+kubectl apply -f todo-list/db/backup/update/todo-db-backup-cronjob-suspend.yaml
+
+# 크론잡의 상태를 확인
+kubectl get cronjob todo-db-backup
+
+# 크론잡이 관리하는 잡의 목록을 확인
+kubectl get jobs -o jsonpath="{.items[?(@.metadata.ownerReferences[0].name=='todo-db-backup')].metadata.name}"
+-----------------------------------------------------
+
+# 최상위 리소스를 삭제
+kubectl delete all -l kiamol=ch08
+
+# 영구볼륨클레임을 삭제
+kubectl delete pvc -l kiamol=ch08
+
+
+
+9장
+
+# 이번 장 예제 코드 디렉터리로 이동
+cd ch09
+
+# 간단한 웹 애플리케이션을 배치
+kubectl apply -f vweb/
+
+# 레플리카셋 확인
+kubectl get rs -l app=vweb
+
+# 애플리케이션 스케일링
+kubectl apply -f vweb/update/vweb-v1-scale.yaml
+
+# 레플리카셋 다시 확인
+kubectl get rs -l app=vweb
+
+# 디플로이먼트의 롤아웃 히스토리를 확인
+kubectl rollout history deploy/vweb
+-----------------------------------------------------
+
+# 웹 애플리케이션의 이미지 버전을 변경
+kubectl set image deployment/vweb web=kiamol/ch09-vweb:v2
+
+# 레플리카셋의 상태를 확인
+kubectl get rs -l app=vweb
+
+# 롤아웃 히스토리를 확인
+kubectl rollout history deploy/vweb
+-----------------------------------------------------
+
+# 디플로이먼트 변경에 record 옵션을 사용
+kubectl apply -f vweb/update/vweb-v11.yaml --record
+
+# 레플리카셋의 정보에서 레이블을 확인
+kubectl get rs -l app=vweb --show-labels
+
+# 현재 롤아웃 상태를 확인
+kubectl rollout status deploy/vweb
+
+# 롤아웃 히스토리를 확인
+kubectl rollout history deploy/vweb
+
+# 현재 레플리카셋의 롤아웃 리비전을 출력
+kubectl get rs -l app=vweb -o=custom-columns=NAME:.metadata.name,REPLICAS:.status.replicas,REVISION:.metadata.annotations.deployment\.kubernetes\.io/revision
+-----------------------------------------------------
+
+# 이 URL을 자주 사용할 것이므로 파일에 저장한다
+kubectl get svc vweb -o jsonpath='http://{.status.loadBalancer.ingress[0].*}:8090/v.txt' > url.txt
+
+# 파일에 담긴 URL로 요청을 보낸다
+curl $(cat url.txt) -UseBasicParsing
+
+# v2 업데이트를 배치
+kubectl apply -f vweb/update/vweb-v2.yaml --record
+
+# 애플리케이션의 응답을 다시 확인
+curl $(cat url.txt) -UseBasicParsing
+
+# 레플리카셋의 상세 정보를 확인
+kubectl get rs -l app=vweb --show-labels
+-----------------------------------------------------
+
+# 리비전 히스토리 확인
+kubectl rollout history deploy/vweb
+
+# 레플리카셋의 리비전을 확인
+kubectl get rs -l app=vweb -o=custom-columns=NAME:.metadata.name,REPLICAS:.status.replicas,VERSION:.metadata.labels.version,REVISION:.metadata.annotations.deployment\.kubernetes\.io/revision
+
+# 롤백을 했을 때의 예측 결과를 확인
+kubectl rollout undo deploy/vweb --dry-run
+
+# 리비전 2로 롤백을 시작
+kubectl rollout undo deploy/vweb --to-revision=2
+
+# 애플리케이션의 상태를 확인 -- 깜짝 놀랄 결과
+curl $(cat url.txt) -UseBasicParsing
+-----------------------------------------------------
+
+# 기존 애플리케이션을 제거
+kubectl delete deploy vweb
+
+# 컨피그맵에 설정값을 담은 버전을 배치
+kubectl apply -f vweb/update/vweb-v3-with-configMap.yaml --record
+
+# 애플리케이션의 응답을 확인
+curl $(cat url.txt) -UseBasicParsing
+
+# 컨피그맵을 업데이트하고 반영될 때까지 대기
+kubectl apply -f vweb/update/vweb-configMap-v31.yaml --record
+sleep 120
+
+# 애플리케이션 응답을 다시 확인
+curl $(cat url.txt) -UseBasicParsing
+
+# 롤아웃 히스토리를 확인
+kubectl rollout history deploy/vweb
+-----------------------------------------------------
+
+# 기존 애플리케이션을 제거
+kubectl delete deploy vweb
+
+# 불변적 설정값 객체를 사용하는 디플로이먼트를 생성
+kubectl apply -f vweb/update/vweb-v4-with-configMap.yaml --record
+
+# 애플리케이션의 응답을 확인
+curl $(cat url.txt) -UseBasicParsing
+
+# 새로운 컨피그맵을 배치, 디플로이먼트를 업데이트
+kubectl apply -f vweb/update/vweb-v41-with-configMap.yaml --record
+
+# 애플리케이션의 응답을 다시 확인
+curl $(cat url.txt) -UseBasicParsing
+
+# 이번 업데이트는 롤아웃이 발생 
+kubectl rollout history deploy/vweb
+
+# 따라서 롤백이 가능함
+kubectl rollout undo deploy/vweb
+curl $(cat url.txt) -UseBasicParsing
+-----------------------------------------------------
+
+# 기존 애플리케이션을 제거
+kubectl delete deploy vweb
+
+# 리크리에이트 전략을 사용하는 정의를 배치
+kubectl apply -f vweb-strategies/vweb-recreate-v2.yaml
+
+# 레플리카셋의 상태를 확인
+kubectl get rs -l app=vweb
+
+# 애플리케이션을 테스트
+curl $(cat url.txt) -UseBasicParsing
+
+# 디플로이먼트의 상태를 확인
+kubectl describe deploy vweb
+-----------------------------------------------------
+
+# 업데이트를 배치
+kubectl apply -f vweb-strategies/vweb-recreate-v3.yaml
+
+# 롤아웃의 상태를 확인(타임아웃 2초)
+kubectl rollout status deploy/vweb --timeout=2s
+
+# 레플리카셋의 상태를 확인
+kubectl get rs -l app=vweb
+
+# 파드의 상태를 확인
+kubectl get pods -l app=vweb
+
+# 애플리케이션을 테스트 -- 실패
+curl $(cat url.txt) -UseBasicParsing
+-----------------------------------------------------
+
+# 롤링 업데이트로 디플로이먼트를 v2 이미지를 사용하도록 업데이트
+kubectl apply -f vweb-strategies/vweb-rollingUpdate-v2.yaml
+
+# 애플리케이션 파드의 상태를 확인
+kubectl get po -l app=vweb
+
+# 롤아웃 상태를 확인
+kubectl rollout status deploy/vweb
+
+# 레플리카셋의 상태를 확인
+kubectl get rs -l app=vweb
+
+# 애플리케이션 테스트
+curl $(cat url.txt) -UseBasicParsing
+-----------------------------------------------------
+
+# 오류가 있는 이미지로 업데이트
+kubectl apply -f vweb-strategies/vweb-rollingUpdate-v3.yaml
+
+# 파드의 상태를 확인
+kubectl get po -l app=vweb
+
+# 롤아웃 상태를 확인
+kubectl rollout status deploy/vweb
+
+# 레플리카셋의 스케일링 상태를 확인
+kubectl get rs -l app=vweb
+
+# 애플리케이션 테스트
+curl $(cat url.txt) -UseBasicParsing
+-----------------------------------------------------
+
+# 실행 중인 애플리케이션을 모두 제거
+kubectl delete all -l kiamol=ch09
+
+# to-do 애플리케이션, 데이터베이스, 리버스 프록시를 배치
+kubectl apply -f todo-list/db/ -f todo-list/web/ -f todo-list/proxy/
+
+# 애플리케이션 URL을 생성
+kubectl get svc todo-proxy -o jsonpath='http://{.status.loadBalancer.ingress[0].*}:8091'
+
+# 웹 브라우저에서 애플리케이션에 접근,
+# 할일 항목을 추가하고 새 항목이 목록에 추가되는지 확인
+-----------------------------------------------------
+
+# 데몬셋 업데이트
+kubectl apply -f todo-list/proxy/update/nginx-rollingUpdate.yaml
+
+# 파드의 업데이트 상태를 확인
+kubectl get po -l app=todo-proxy --watch
+
+# 업데이트가 완료되면 ctrl-c 키를 누른다
+-----------------------------------------------------
+
+# 업데이트를 배치
+kubectl apply -f todo-list/db/update/todo-db-rollingUpdate-partition.yaml
+
+# 롤아웃의 상태를 확인
+kubectl rollout status statefulset/todo-db
+
+# 파드의 목록에서 실행 시각과 이미지 이름을 확인
+kubectl get pods -l app=todo-db -o=custom-columns=NAME:.metadata.name,IMAGE:.spec.containers[0].image,START_TIME:.status.startTime
+
+# 웹 애플리케이션을 읽기 전용 모드로 전환해
+# 데이터베이스 부 인스턴스만 사용하도록 한다
+kubectl apply -f todo-list/web/update/todo-web-readonly.yaml
+
+# 애플리케이션을 테스트한다. 데이터를 볼 수 있지만 수정할 수는 없다
+-----------------------------------------------------
+
+# 업데이트를 배치
+kubectl apply -f todo-list/db/update/todo-db-rollingUpdate.yaml
+
+# 업데이트 진행 상황을 확인
+kubectl rollout status statefulset/todo-db
+
+# 파드의 정의는 그대로다
+kubectl get pods -l app=todo-db -o=custom-columns=NAME:.metadata.name,IMAGE:.spec.containers[0].image,START_TIME:.status.startTime
+
+# 웹 애플리케이션을 읽기 전용에서 원래 모드로 되돌린다
+kubectl apply -f todo-list/web/todo-web.yaml
+
+# 애플리케이션을 테스트해서 업데이트된 데이터베이스
+# 주 인스턴스가 제대로 동작하는지 확인한다
+-----------------------------------------------------
+
+kubectl delete all -l kiamol=ch09
+kubectl delete cm -l kiamol=ch09
+kubectl delete pvc -l kiamol=ch09
+ 
+10장
+
+# 초콜레티를 사용한 설치(윈도우)
+choco install -y kubernetes-helm
+
+# 홈브루를 사용한 설치(macOS)
+brew install helm
+
+# 헬름 설치 스크립트를 사용한 설치(리눅스)
+curl https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
+
+# 설치가 잘 되었는지 확인
+helm version
+-----------------------------------------------------
+
+# 원격 서버를 가리키는 이름으로 리포지터리를 추가
+helm repo add kiamol https://kiamol.net
+
+# 로컬 리포지터리 캐시를 업데이트
+helm repo update
+
+# 인덱스 캐시로부터 애플리케이션을 검색
+helm search repo vweb --versions
+-----------------------------------------------------
+
+# 차트에 포함된 파라미터 값의 기본값을 확인
+helm show values kiamol/vweb --version 1.0.0
+
+# 파라미터 값의 기본값을 수정해 차트를 설치
+helm install --set servicePort=8010 --set replicaCount=1 ch10-vweb kiamol/vweb --version 1.0.0
+
+# 설치된 릴리스를 확인
+helm ls
+-----------------------------------------------------
+
+# 디플로이먼트의 상태를 확인
+kubectl get deploy -l app.kubernetes.io/instance=ch10-vweb --show-labels
+
+# 레플리카 수를 변경해 릴리스를 업데이트
+helm upgrade --set servicePort=8010 --set replicaCount=3 ch10-vweb kiamol/vweb --version 1.0.0
+
+# 레플리카셋의 상태를 확인
+kubectl get rs -l app.kubernetes.io/instance=ch10-vweb
+
+# 애플리케이션 URL을 확인
+kubectl get svc ch10-vweb -o jsonpath='http://{.status.loadBalancer.ingress[0].*}:8010'
+
+# 웹 브라우저에서 애플리케이션에 접근
+-----------------------------------------------------
+
+# 이번 장 예제 코드 디렉터리로 이동
+cd ch10
+
+# 차트에 들어갈 파일의 유효성을 검증
+helm lint web-ping
+
+# 차트 디렉터리에서 릴리스를 설치
+helm install wp1 web-ping/
+
+# 설치된 릴리스의 상태를 확인
+helm ls
+-----------------------------------------------------
+
+# 차트에서 설정 가능한 값을 확인
+helm show values web-ping/
+
+# wp2라는 이름으로 요청 대상 URL을 달리한 릴리스를 추가 배치
+helm install --set targetUrl=kiamol.net wp2 web-ping/
+
+# 요청을 보낼 때까지 1분 정도 기다렸다가 로그를 확인
+kubectl logs -l app=web-ping --tail 1
+-----------------------------------------------------
+
+
+# 공식 헬름 리포지터리를 추가
+helm repo add stable https://charts.helm.sh/stable
+
+# 차트뮤지엄 설치 - repo 옵션을 사용하면 리포지터리의 상세 정보를
+# 받아오므로 로컬 캐시를 업데이트하지 않아도 된다
+helm install --set service.type=LoadBalancer --set service.externalPort=8008 --set env.open.DISABLE_API=false repo stable/chartmuseum --version 2.13.0 --wait
+
+# 로컬에 설치된 차트뮤지엄의 URL
+kubectl get svc repo-chartmuseum -o jsonpath='http://{.status.loadBalancer.ingress[0].*}:8008'
+
+# 설치된 차트뮤지엄을 local이라는 이름으로 리포지터리 등록
+helm repo add local $(kubectl get svc repo-chartmuseum -o jsonpath='http://{.status.loadBalancer.ingress[0].*}:8008')
+-----------------------------------------------------
+
+# 로컬에 위치한 차트를 패키징
+helm package web-ping
+
+# (윈도우 10 환경 한정) 진짜 curl을 사용하도록 파워셸의 앨리어스를 제거한다 
+Remove-Item Alias:curl -ErrorAction Ignore
+
+# 패키징된 차트의 압축 파일을 차트뮤지엄에 업로드
+curl --data-binary "@web-ping-0.1.0.tgz" $(kubectl get svc repo-chartmuseum -o jsonpath='http://{.status.loadBalancer.ingress[0].*}:8008/api/charts')
+
+# 차트뮤지엄의 인덱스에서 새로운 차트를 확인
+curl $(kubectl get svc repo-chartmuseum -o jsonpath='http://{.status.loadBalancer.ingress[0].*}:8008/index.yaml')
+-----------------------------------------------------
+
+# 리포지터리 캐시를 업데이트
+helm repo update
+
+# 헬름에서 조금 전 업로드한 차트를 찾을 수 있는지 확인
+helm search repo web-ping
+
+# 설정값 파일의 내용을 확인
+cat web-ping-values.yaml
+
+# 설정값 파일을 이용해 차트를 설치
+helm install -f web-ping-values.yaml wp3 local/web-ping
+
+# web-ping 애플리케이션을 구성하는 파드의 목록을 확인
+kubectl get pod -l app=web-ping -o custom-columns='NAME:.metadata.name,ENV:.spec.containers[0].env[*].value'
+-----------------------------------------------------
+
+# 로컬에 위치한 차트를 설치
+helm install --set upstreamToProxy=ch10-vweb:8010 vweb-proxy proxy/
+
+# 새로 설치된 프록시 서비스의 URL을 확인
+kubectl get svc vweb-proxy-proxy -o jsonpath='http://{.status.loadBalancer.ingress[0].*}:8080'
+
+# 프록시 URL에 접근
+-----------------------------------------------------
+
+# 하위 차트를 빌드
+helm dependency build pi
+
+# 하위 차트를 모두 내려받았는지 확인
+ls ./pi/charts
+-----------------------------------------------------
+
+# 설정 기본값을 적용해 오류 여부를 검증
+helm install pi1 ./pi --dry-run
+
+# 수정된 설정값으로 프록시와 함께 설치
+helm install --set serviceType=ClusterIP --set proxy.enabled=true pi2 ./pi
+
+# 프록시가 추가된 애플리케이션의 URL을 확인
+kubectl get svc pi2-proxy -o jsonpath='http://{.status.loadBalancer.ingress[0].*}:8030'
+
+# 애플리케이션에 접근
+-----------------------------------------------------
+
+# 릴리스의 목록을 확인
+helm ls -q
+
+# 새 버전 차트의 설정값을 확인
+helm show values kiamol/vweb --version 2.0.0
+
+# internal 타입의 서비스로 새 릴리스를 설치
+helm install --set servicePort=8020 --set replicaCount=1 --set serviceType=ClusterIP ch10-vweb-v2 kiamol/vweb --version 2.0.0
+
+# 애플리케이션 테스트를 위한 포트포워드 설정
+kubectl port-forward svc/ch10-vweb-v2 8020:8020
+
+# localhost:8020으로 애플리케이션에 접근한 뒤,
+# Ctrl+C 또는 Cmd+C 키를 눌러 포트포워딩을 종료
+-----------------------------------------------------
+
+# 임시로 설치한 릴리스를 제거
+helm uninstall ch10-vweb-v2
+
+# 버전 1 릴리스의 현재 설정값을 확인
+helm get values ch10-vweb
+
+# 기존 릴리스를 설정값을 재사용해 버전 2로 업그레이드 -- 실패
+helm upgrade --reuse-values --atomic ch10-vweb kiamol/vweb --version 2.0.0
+-----------------------------------------------------
+
+# vweb 릴리스의 릴리스 히스토리를 확인
+helm history ch10-vweb
+-----------------------------------------------------
+
+# 현재 릴리스의 설정값을 YAML 파일로 저장
+helm get values ch10-vweb -o yaml > vweb-values.yaml
+
+# --atomic 플래그와 저장된 설정값 파일을 사용해 버전 2로 업그레이드
+helm upgrade -f vweb-values.yaml --atomic ch10-vweb kiamol/vweb --version 2.0.0
+
+# 서비스 및 레플리카셋의 상태를 확인
+kubectl get svc,rs -l app.kubernetes.io/instance=ch10-vweb
+-----------------------------------------------------
+
+# 리비전 2에 적용된 설정값을 확인
+helm get values ch10-vweb --revision 2
+
+# 리비전 2로 롤백
+helm rollback ch10-vweb 2
+
+# 최근 두 리비전의 정보를 확인
+helm history ch10-vweb --max 2 -o yaml
+-----------------------------------------------------
+
+# 모든 릴리스를 제거
+helm uninstall $(helm ls -q)
+
+
+
+11장
+11장 실습은 컨테이너 런타임이 도커여야 한다. Rancher Desktop이라면 Container Engine을 dockered로 설정한 상태에서 실습을 진행한다.
+
+# 이번 장의 예제 코드 디렉터리로 이동
+cd ch11
+
+# 애플리케이션을 빌드
+docker-compose -f bulletin-board/docker-compose.yml build
+
+# 애플리케이션 실행
+docker-compose -f bulletin-board/docker-compose.yml up -d
+
+# 실행 중인 컨테이너를 확인
+docker ps
+
+# http://localhost:8010/으로 애플리케이션에 접근
+-----------------------------------------------------
+
+# 컴포즈로 실행한 애플리케이션을 종료
+docker-compose -f bulletin-board/docker-compose.yml down
+
+# 로컬 쿠버네티스 클러스터에 배치
+kubectl apply -f bulletin-board/kubernetes/
+
+# 애플리케이션의 URL을 확인
+kubectl get svc bulletin-board -o jsonpath='http://{.status.loadBalancer.ingress[0].*}:8011'
+
+# 웹 브라우저에서 애플리케이션에 접근
+-----------------------------------------------------
+
+# 수정 전 소스 코드 파일을 삭제
+rm bulletin-board/src/backend/events.js
+
+# 수정된 소스 코드 파일로 교체
+cp bulletin-board/src/backend/events-update.js bulletin-board/src/backend/events.js
+
+# 컴포즈로 이미지를 다시 빌드
+docker-compose -f bulletin-board/docker-compose.yml build
+
+# kubectl을 사용해 애플리케이션을 다시 배치
+kubectl apply -f bulletin-board/kubernetes/
+
+# 기존 파드를 삭제해 강제로 파드를 교체
+kubectl delete pod -l app=bulletin-board
+-----------------------------------------------------
+
+# 깃 서버를 배치
+kubectl apply -f infrastructure/gogs.yaml
+
+# 서버가 준비될 때까지 대기
+kubectl wait --for=condition=ContainersReady pod -l app=gogs
+
+# 예제 코드 리포지터리에 로컬 깃 서버를 추가
+# 대상 URL을 서비스로부터 확인
+git remote add gogs $(kubectl get svc gogs -o jsonpath='http://{.status.loadBalancer.ingress[0].*}:3000/kiamol/kiamol.git')
+
+# 서버에 코드를 푸시
+# 사용자명 kiamol, 패스워드 kiamol을 사용
+git push gogs
+
+# 서버 URL을 확인
+kubectl get svc gogs -o jsonpath='http://{.status.loadBalancer.ingress[0].*}:3000'
+
+# 서버에 접근한 다음 kiamol 사용자명 및 패스워드로 로그인(kiamol/kiamol)
+-----------------------------------------------------
+
+# 빌드킷을 배치
+kubectl apply -f infrastructure/buildkitd.yaml
+
+# 빌드킷이 준비될 때까지 대기
+kubectl wait --for=condition=ContainersReady pod -l app=buildkitd
+
+# 깃과 빌드킷이 사용 가능한 상태인지 확인
+kubectl exec deploy/buildkitd -- sh -c 'git version && buildctl --version'
+
+# 도커가 설치되어 있지 않은 것을 확인 -- 오류 발생
+kubectl exec deploy/buildkitd -- sh -c 'docker version'
+-----------------------------------------------------
+
+# 빌드킷 파드에 접속
+kubectl exec -it deploy/buildkitd -- sh
+
+# 곡스 서버에서 소스 코드를 복제
+cd ~
+git clone https://github.com/sixeyed/kiamol.git
+
+# 애플리케이션 디렉터리로 이동
+cd kiamol/ch11/bulletin-board/
+
+# 빌드킷으로 애플리케이션을 빌드
+# 옵션의 의미는 Dockerfile 스크립트 대신 빌드팩을 사용하고
+# 빌드 결과로 컨테이너 이미지를 내놓으라는 뜻이다
+buildctl build --frontend=gateway.v0 --opt source=kiamol/buildkit-buildpacks --local context=src --output type=image,name=kiamol/ch11-bulletin-board:buildkit
+
+# 빌드가 끝나면 파드에서 접속을 종료한다
+exit
+-----------------------------------------------------
+
+# 네임스페이스를 생성
+kubectl create namespace kiamol-ch11-test
+
+# sleep 파드를 새로운 네임스페이스에 배치
+kubectl apply -f sleep.yaml --namespace kiamol-ch11-test
+
+# 파드의 목록에서 sleep 파드를 확인 -- 여기서는 확인되지 않음
+kubectl get pods -l app=sleep
+
+# 새로 만든 네임스페이스의 파드 목록을 확인
+kubectl get pods -l app=sleep -n kiamol-ch11-test
+-----------------------------------------------------
+
+# 새로운 네임스페이스와 디플로이먼트를 배치
+kubectl apply -f sleep-uat.yaml
+
+# 모든 네임스페이스에 있는 sleep 디플로이먼트의 목록을 확인
+kubectl get deploy -l app=sleep --all-namespaces
+
+# UAT 네임스페이스를 삭제
+kubectl delete namespace kiamol-ch11-uat
+
+# 모든 네임스페이스에 있는 sleep 디플로이먼트의 목록을 확인
+kubectl get deploy -l app=sleep --all-namespaces
+-----------------------------------------------------
+
+# 컨텍스트의 목록을 확인
+kubectl config get-contexts
+
+# 현재 컨텍스트의 기본 네임스페이스를 변경
+kubectl config set-context --current --namespace=kiamol-ch11-test
+
+# 기본 네임스페이스에 속한 파드의 목록을 확인
+kubectl get pods
+-----------------------------------------------------
+
+# 네임스페이스를 공란으로 지정하면 default 네임스페이스로 돌아간다
+kubectl config set-context --current --namespace=
+
+# 설정 파일에서 클러스터 접속 정보를 확인
+kubectl config view
+-----------------------------------------------------
+
+# 인증 정보를 로컬 변수로 수집(윈도우)
+. .\set-registry-variables.ps1
+
+# 인증 정보를 로컬 변수로 수집(macOS, 리눅스)
+. ./set-registry-variables.sh
+
+# 변수로 수집한 인증 정보로 비밀값 객체를 생성
+kubectl create secret docker-registry registry-creds --docker-server=$REGISTRY_SERVER --docker-username=$REGISTRY_USER --docker-password=$REGISTRY_PASSWORD
+
+# 비밀값의 상세 정보를 확인
+kubectl get secret registry-creds
+-----------------------------------------------------
+
+# 젠킨스 서버를 배치
+kubectl apply -f infrastructure/jenkins.yaml
+
+# 파드가 준비될 때까지 대기(여러 번 시도해야 할 수도 있음)
+kubectl wait --for=condition=ContainersReady pod -l app=jenkins
+
+# kubectl이 클러스터에 접속할 수 있는지 확인
+kubectl exec deploy/jenkins -- sh -c 'kubectl version --short'
+
+# 레지스트리 비밀값이 제대로 마운트됐는지 확인
+kubectl exec deploy/jenkins -- sh -c 'ls -l /root/.docker'
+-----------------------------------------------------
+
+이 실습과 다음 실습은 젠킨스에 스크립트로 설치되는 플러그인이 버전업되면서 실습이 어려워졌다. 따라서 참고용으로만 살펴주길 바란다.
+
+kubectl create clusterrolebinding gitlab-cluster-admin --clusterrole=cluster-admin --group=system:serviceaccounts
+
+# 젠킨스 서버의 URL을 확인
+kubectl get svc jenkins -o jsonpath='http://{.status.loadBalancer.ingress[0].*}:8080/job/kiamol'
+
+# 젠킨스에 접근해 로그인하라(사용자명, 패스워드 : kiamol) 
+# 젠킨스가 아직 준비 작업 중이면 대기하라는 화면이 뜬다
+
+# Kiamol 잡을 실행시키고 기다린다
+
+# 빌드 파이프라인 실행이 끝나면
+# 애플리케이션이 잘 배치되었는지 확인한다
+kubectl get pods -n kiamol-ch11-test -l app.kubernetes.io/name=bulletin-board -o=custom-columns=NAME:.metadata.name,IMAGE:.spec.containers[0].image
+
+# 애플리케이션의 URL을 확인
+kubectl get svc -n kiamol-ch11-test bulletin-board -o jsonpath='http://{.status.loadBalancer.ingress[0].*}:8012'
+
+# 애플리케이션에 접근
+-----------------------------------------------------
+
+앞의 실습과 연결되는 실습이라 참고용으로만 살펴주길 바란다.
+
+# 코드를 수정한 다음 커밋하고
+# 곡스 서버에 푸시한다 
+git add bulletin-board/src/backend/events.js
+git commit -m 'Add event descriptions'
+git push gogs
+
+# 젠킨스로 돌아가 빌드가 끝나기를 기다린다
+
+# 애플리케이션 파드의 이미지 버전이 바뀐 것을 확인
+kubectl get pods -n kiamol-ch11-test -l app.kubernetes.io/name=bulletin-board -o=custom-columns=NAME:.metadata.name,IMAGE:.spec.containers[0].image
+
+# 애플리케이션으로 돌아간다
+-----------------------------------------------------
+
+# 파이프라인을 통해 설치된 헬름 릴리스를 제거
+helm -n kiamol-ch11-test uninstall bulletin-board
+
+# 수동 배치된 애플리케이션을 제거
+kubectl delete all -l app=bulletin-board
+
+
+
+12장
+
+# 이번 장 예제 코드의 디렉터리로 이동
+cd ch12
+
+# 무작위 숫자 생성 애플리케이션의 API
+# 컴포넌트를 배치
+kubectl apply -f numbers/
+
+# API 컴포넌트가 준비될 때까지 대기
+kubectl wait --for=condition=ContainersReady pod -l app=numbers-api
+
+# 파드가 서비스의 엔드포인트 목록에 포함됐는지 확인
+kubectl get endpoints numbers-api
+
+# API의 URL을 텍스트 파일에 저장
+kubectl get svc numbers-api -o jsonpath='http://{.status.loadBalancer.ingress[0].*}:8013' > api-url.txt
+
+# API를 호출 -- 요청 응답 후, 애플리케이션이 오류를 일으킨다
+curl "$(cat api-url.txt)/rng"
+
+# 상태 확인용 엔드포인트로 API의 상태를 확인
+curl "$(cat api-url.txt)/healthz"; curl "$(cat api-url.txt)/healthz"
+
+# 서비스와 연결된 파드의 목록을 확인
+kubectl get endpoints numbers-api
+-----------------------------------------------------
+
+# 예제 12-1의 정의를 배치
+kubectl apply -f numbers/update/api-with-readiness.yaml
+
+# 파드가 대체될 때까지 대기
+kubectl wait --for=condition=ContainersReady pod -l app=numbers-api,version=v2
+
+# 서비스의 엔드포인트 목록을 확인
+kubectl get endpoints numbers-api
+
+# 애플리케이션 컨테이너에 고장을 발생시킴
+curl "$(cat api-url.txt)/rng"
+
+# 레디니스 프로브가 동작할 때까지 대기
+sleep 10
+
+# 서비스의 엔드포인트 목록을 다시 확인
+kubectl get endpoints numbers-api
+-----------------------------------------------------
+
+# 서비스 엔드포인트 목록을 확인
+kubectl get endpoints numbers-api
+
+# API를 호출해 파드의 고장을 일으킨다
+curl "$(cat api-url.txt)/rng"
+
+# 레디니스 프로브가 상태 체크를 할 때까지 대기
+sleep 10
+
+# 엔드포인트 목록을 다시 확인
+kubectl get endpoints numbers-api
+
+# 파드의 상태를 확인
+kubectl get pods -l app=numbers-api
+
+# 더이상 요청을 처리할 API 파드가 없다
+
+# API에 트래픽을 일으키면 오류가 난다
+curl "$(cat api-url.txt)/reset"
+-----------------------------------------------------
+
+
+# 예제 12-2의 파드 정의를 반영
+kubectl apply -f numbers/update/api-with-readiness-and-liveness.yaml
+
+# 새로운 파드가 준비될 때까지 대기
+kubectl wait --for=condition=ContainersReady pod -l app=numbers-api,version=v3
+
+# 파드의 상태를 확인
+kubectl get pods -l app=numbers-api -o wide
+
+# 서비스 엔드포인트 목록을 확인
+kubectl get endpoints numbers-api # 항목이 두 개
+
+# 한쪽 파드에 고장을 일으킴
+curl "$(cat api-url.txt)/rng"
+
+# 프로브가 상태를 체크할 때까지 대기한 후
+# 파드의 상태를 다시 확인
+sleep 20
+kubectl get pods -l app=numbers-api
+-----------------------------------------------------
+
+# 웹 및 데이터베이스 컴포넌트를 배치
+kubectl apply -f todo-list/db/ -f todo-list/web/
+
+# 애플리케이션이 준비될 때까지 대기
+kubectl wait --for=condition=ContainersReady pod -l app=todo-web
+
+# 서비스의 URL을 확인
+kubectl get svc todo-web -o jsonpath='http://{.status.loadBalancer.ingress[0].*}:8081'
+
+# 애플리케이션에 접근해 새 항목을 추가
+-----------------------------------------------------
+
+# 업데이트를 반영
+kubectl apply -f todo-list/db/update/todo-db-bad-command.yaml
+
+# 파드 상태의 변화를 모니터링
+kubectl get pods -l app=todo-db --watch
+
+# 애플리케이션이 고장을 일으키지 않았는지 확인
+# ctrl-c 또는 cmd-c 키로 kubectl을 종료
+-----------------------------------------------------
+
+# 앞서 실습한 내용을 모두 정리
+kubectl delete all -l kiamol=ch12
+
+# 헬름 릴리스를 설치
+helm install --atomic todo-list todo-list/helm/v1/todo-list/
+
+# 배치가 성공적으로 끝나면 파일에 애플리케이션에 접근할 URL을 출력하는 kubectl 명령이 출력된다. 이 명령을 복사해 실행한다
+
+
+# 애플리케이션에 접근해 새 항목을 추가
+-----------------------------------------------------
+
+# 파드의 현재 상태와 컨테이너 이미지를 확인
+kubectl get pods -l app=todo-list-db -o=custom-columns=NAME:.metadata.name,STATUS:.status.phase,IMAGE:.spec.containers[0].image
+
+# 릴리스를 업그레이드 -- 실패
+helm upgrade --atomic --timeout 30s todo-list todo-list/helm/v2/todo-list/
+
+# 파드의 목록을 다시 확인
+kubectl get pods -l app=todo-list-db -o=custom-columns=NAME:.metadata.name,STATUS:.status.phase,IMAGE:.spec.containers[0].image
+
+# 애플리케이션으로 돌아와 목록을 새로고침
+-----------------------------------------------------
+
+# 업그레이드 실행
+helm upgrade --atomic --timeout 30s todo-list todo-list/helm/v3/todo-list/
+
+# 데이터베이스 파드의 이미지 정보 확인
+kubectl get pods -l app=todo-list-db -o=custom-columns=NAME:.metadata.name,STATUS:.status.phase,IMAGE:.spec.containers[0].image,IP:.status.podIPs[].ip
+
+# 데이터베이스 서비스의 엔드포인트 목록 확인
+kubectl get endpoints todo-list-db
+
+# 헬름을 사용해 테스트 잡을 실행
+helm test todo-list
+
+# 테스트 잡의 실행 결과를 확인
+kubectl logs -l job-name=todo-list-db-test
+-----------------------------------------------------
+
+# 버전 4로 가는 업그레이드 실행 -- 실패
+helm upgrade --atomic --timeout 30s todo-list todo-list/helm/v4/todo-list/
+
+# 잡의 목록을 확인
+kubectl get jobs --show-labels
+
+# 업그레이드 사전 테스트 잡의 결과를 출력
+kubectl logs -l job-name=todo-list-db-check
+
+# 데이터베이스 파드가 변경되지 않았는지 확인
+kubectl get pods -l app=todo-list-db -o=custom-columns=NAME:.metadata.name,STATUS:.status.phase,IMAGE:.spec.containers[0].image
+-----------------------------------------------------
+
+# 이전 실습에 설치했던 헬름 릴리스를 제거
+helm uninstall todo-list
+
+# 현재 사용 가능한 노드의 메모리 잔량을 확인
+kubectl get nodes -o jsonpath='{.items[].status.allocatable.memory}'
+
+# 메모리를 다량 사용하는 애플리케이션을 배치
+kubectl apply -f memory-allocator/
+
+# 잠시 대기 후, 사용된 메모리 양을 확인
+kubectl logs -l app=memory-allocator --tail 1
+-----------------------------------------------------
+
+# 메모리 사용량 제한 업데이트를 적용
+kubectl apply -f memory-allocator/update/memory-allocator-with-limit.yaml
+
+# 애플리케이션이 어느 정도 메모리를 사용할 때까지 대기
+sleep 20
+
+# 애플리케이션 로그를 출력
+kubectl logs -l app=memory-allocator --tail 1
+
+# 파드의 상태를 확인
+kubectl get pods -l app=memory-allocator --watch
+-----------------------------------------------------
+
+# 기존에 설치된 애플리케이션을 삭제
+kubectl delete deploy memory-allocator
+
+# 네임스페이스, 리소스쿼터, 디플로이먼트를 새로 배치
+kubectl apply -f memory-allocator/namespace-with-quota/
+
+# 레플리카셋의 상태를 확인
+kubectl get replicaset -n kiamol-ch12-memory
+
+# 레플리카셋의 이벤트 목록을 확인
+kubectl describe replicaset -n kiamol-ch12-memory
+-----------------------------------------------------
+
+# 노드에서 사용 가능한 CPU의 수를 확인
+kubectl get nodes -o jsonpath='{.items[].status.allocatable.cpu}'
+
+# CPU 사용량 제한 없이 애플리케이션을 배치
+kubectl apply -f pi/
+
+# 애플리케이션 URL을 확인
+kubectl get svc pi-web -o jsonpath='http://{.status.loadBalancer.ingress[0].*}:8012/?dp=50000'
+
+# 애플리케이션에 접근해 원주율 계산에 걸린 시간을 확인
+
+# 애플리케이션에 CPU 사용량 제한을 적용
+kubectl apply -f pi/update/web-with-cpu-limit.yaml
+
+# 애플리케이션을 새로고침하고 원주율 계산에 걸린 시간을 비교
+-----------------------------------------------------
+
+# 기존에 배치된 애플리케이션을 제거
+kubectl delete deploy pi-web
+
+# 네임스페이스, 리소스쿼터, 업데이트된 애플리케이션을 배치
+kubectl apply -f pi/namespace-with-quota/
+
+# 레플리카셋의 상태를 확인
+kubectl get replicaset -n kiamol-ch12-cpu
+
+# 서비스의 엔드포인트 목록을 확인
+kubectl get endpoints pi-web -n kiamol-ch12-cpu
+
+# 레플리카셋의 이벤트 목록을 확인
+kubectl describe replicaset -n kiamol-ch12-cpu
+-----------------------------------------------------
+
+# 네임스페이스 삭제
+kubectl delete ns -l kiamol=ch12
+kubectl delete all -l kiamol=ch12
+
+# 삭제되지 않은 나머지 리소스를 삭제
+kubectl delete secret,configmap,pvc -l kiamol=ch12
+-----------------------------------------------------
+
+# sleep 디플로이먼트를 배치
+kubectl apply -f sleep.yaml
+
+# 파드 컨테이너와 터미널 세션 연결
+kubectl exec -it deploy/sleep -- sh
+
+# 호스트 로그 파일 마운트 경로로 이동
+cd /var/log/containers/
+
+# timecheck 애플리케이션의 로그 파일 확인
+ls timecheck*kiamol-ch13*_logger*
+
+# 개발 네임스페이스의 로그 파일 내용 확인
+cat $(ls timecheck*kiamol-ch13-dev_logger*) | tail -n 1
+
+# 터미널 세션 종료
+exit
+-----------------------------------------------------
+
+# sleep 파드에 터미널 세션 연결
+kubectl exec -it deploy/sleep -- sh
+
+# 호스트경로 볼륨의 마운트 경로로 이동
+cd /var/log/containers/
+
+# 네트워크 프록시는 모든 노드에서 실행된다
+cat $(ls kube-proxy*) | tail -n 1
+
+# 현재 노드에서 코어 DNS를 사용 중이라면 로그를 볼 수 있다
+cat $(ls coredns*) | tail -n 1
+
+# 현재 노드에서 API 서버가 실행 중이라면 로그를 볼 수 있다
+cat $(ls kube-apiserver*) | tail -n 1
+
+# 터미널 세션 종료
+exit
+-----------------------------------------------------
+
+# 플루언트 비트를 구성하는 데몬셋과 컨피그맵을 배치
+kubectl apply -f fluentbit/
+
+# 플루언트 비트가 실행될 때까지 대기 
+kubectl wait --for=condition=ContainersReady pod -l app=fluent-bit -n kiamol-ch13-logging
+
+# 플루언트 비트 파드의 로그를 확인
+kubectl logs -l app=fluent-bit -n kiamol-ch13-logging --tail 2
+-----------------------------------------------------
+
+# 로그 처리 파이프라인 설정이 담긴 컨피그맵을 업데이트한다
+kubectl apply -f fluentbit/update/fluentbit-config-match.yaml
+
+# 플루언트 비트 데몬셋을 재시작해 변경된 설정을 적용한다
+kubectl rollout restart ds/fluent-bit -n kiamol-ch13-logging
+
+# 새로운 파드가 준비될 때까지 대기
+kubectl wait --for=condition=ContainersReady pod -l app=fluent-bit -n kiamol-ch13-logging
+
+# 수집된 최근 로그를 확인한다
+kubectl logs -l app=fluent-bit -n kiamol-ch13-logging --tail 1
+-----------------------------------------------------
+
+# 설정을 변경하고 플루언트 비트를 재시작한다
+kubectl apply -f fluentbit/update/fluentbit-config-match-multiple.yaml
+
+kubectl rollout restart ds/fluent-bit -n kiamol-ch13-logging
+
+kubectl wait --for=condition=ContainersReady pod -l app=fluent-bit -n kiamol-ch13-logging
+
+# 최근 두 건의 로그를 화면에 출력한다
+kubectl logs -l app=fluent-bit -n kiamol-ch13-logging --tail 2
+-----------------------------------------------------
+
+# 일래스틱서치 디플로이먼트를 생성하고 파드가 준비될 때까지 대기
+kubectl apply -f elasticsearch/
+
+kubectl wait --for=condition=ContainersReady pod -l app=elasticsearch -n kiamol-ch13-logging
+
+# 키바나 디플로이먼트를 생성하고 파드가 준비될 때까지 대기
+kubectl apply -f kibana/
+
+kubectl wait --for=condition=ContainersReady pod -l app=kibana -n kiamol-ch13-logging
+
+# 키바나에 접근할 수 있는 URL 확인
+kubectl get svc kibana -o jsonpath='http://{.status.loadBalancer.ingress[0].*}:5601' -n kiamol-ch13-logging
+-----------------------------------------------------
+
+# 예제 13-3의 설정을 적용한다
+kubectl apply -f fluentbit/update/fluentbit-config-elasticsearch.yaml
+
+# 플루언트 비트 파드를 재시작한 후 대기한다
+kubectl rollout restart ds/fluent-bit -n kiamol-ch13-logging
+
+kubectl wait --for=condition=ContainersReady pod -l app=fluent-bit -n kiamol-ch13-logging
+
+# 이제 키바나 웹 UI를 통해 데이터 조회를 설정한다
+# - 좌측 메뉴에서 Discover를 클릭한다
+# - Create index pattern 버튼을 클릭한다
+# - Index pattern 입력칸에 "test"를 입력한다
+# - Next step 버튼을 클릭한 다음, 
+#   Time Filter field name 입력칸에서 @timestamp를 선택한다
+# - Create Index Pattern 버튼을 클릭한다
+# - 다시 한번 좌측 메뉴에서 Discover를 클릭해 로그를 관찰한다
+-----------------------------------------------------
+
+# API와 프록시를 배치한다
+kubectl apply -f numbers/
+
+# 애플리케이션이 시작될 때까지 대기한다
+kubectl wait --for=condition=ContainersReady pod -l app=numbers-api -n kiamol-ch13-test
+
+# 프록시를 경유해 API에 접근하는 URL을 확인한다
+kubectl get svc numbers-api-proxy -o jsonpath='http://{.status.loadBalancer.ingress[0].*}:8080/rng' -n kiamol-ch13-test
+
+# API를 호출한 뒤 30초를 기다려 페이지를 새로고침하면 오류가 발생한다
+# 키바나에서 검색창에 아래와 같은 질의를 입력하라
+# kubernetes.labels.app:numbers-api AND log:<API에서_출력된_오류_식별자>
+-----------------------------------------------------
+
+# 로그 처리 파이프라인 설정을 변경한다
+kubectl apply -f fluentbit/update/fluentbit-config-parser.yaml
+
+# 플루언트 비트를 재시작한다 
+kubectl rollout restart ds/fluent-bit -n kiamol-ch13-logging
+kubectl wait --for=condition=ContainersReady pod -l app=fluent-bit -n kiamol-ch13-logging
+
+# 디플로이먼트 정의에 파서 애너테이션을 추가하고 업데이트한다
+kubectl apply -f numbers/update/
+
+# API가 준비될 때까지 대기한다
+kubectl wait --for=condition=ContainersReady pod -l app=numbers-api -n kiamol-ch13-test
+
+# API를 다시 사용한 다음, 키바나에서 로그를 열람한다
+-----------------------------------------------------
+
+# 예제 13-6의 grep 필터 설정을 적용한다
+kubectl apply -f fluentbit/update/fluentbit-config-grep.yaml
+
+kubectl rollout restart ds/fluent-bit -n kiamol-ch13-logging
+
+# 기존 API 파드를 삭제해 애플리케이션 로그를 리셋한다
+kubectl delete pods -n kiamol-ch13-test -l app=numbers-api
+
+kubectl wait --for=condition=ContainersReady pod -l app=numbers-api -n kiamol-ch13-test
+
+# 이상이 발생할 때까지 API를 사용한다
+
+# 파드에서 로그를 출력한다
+kubectl logs -n kiamol-ch13-test -l app=numbers-api
+
+# 키바나에서 API 파드의 로그를 확인한다
+-----------------------------------------------------
+
+kubectl delete ns -l kiamol=ch13
+kubectl delete all -l kiamol=ch13
+
+14장
+# 이번 장 예제 코드 디렉터리로 이동한다
+cd ch14
+
+# 프로메테우스 디플로이먼트 및 컨피그맵을 배치한다
+kubectl apply -f prometheus/
+
+# 프로메테우스가 준비될 때까지 대기한다
+kubectl wait --for=condition=ContainersReady pod -l app=prometheus -n kiamol-ch14-monitoring
+
+# 웹 UI에 접근할 URL을 확인한다
+kubectl get svc prometheus -o jsonpath='http://{.status.loadBalancer.ingress[0].*}:9090' -n kiamol-ch14-monitoring
+
+# 웹 UI에 접근해 /targets 페이지를 확인한다
+-----------------------------------------------------
+
+# timecheck 애플리케이션을 배치할 테스트 네임스페이스 생성
+kubectl apply -f timecheck/
+
+# 애플리케이션이 준비될 때까지 대기
+kubectl wait --for=condition=ContainersReady pod -l app=timecheck -n kiamol-ch14-test
+
+# 프로메테우스 UI를 새로 고침한 후
+# timecheck 파드가 있는지 확인한다. 그 다음 /graph 페이지로 이동해
+# 드롭다운 리스트에서 timecheck_total을 선택하고 Execute를 클릭하라
+# 디플로이먼트에 파드를 하나 추가한다
+kubectl scale deploy/timecheck --replicas 2 -n kiamol-ch14-test
+
+# 새로운 파드가 준비될 때까지 대기한다
+kubectl wait --for=condition=ContainersReady pod -l app=timecheck -n kiamol-ch14-test
+
+# 프로메테우스로 돌아가 스크래핑 대상 목록과 그래프 화면을 확인한 다음
+# timecheck_total과 dotnet_total_memory_bytes 측정값을
+# 반환하는 질의를 실행하라
+
+-----------------------------------------------------
+# 애플리케이션을 배치한다
+kubectl apply -f apod/
+
+# 주 컴포넌트가 시작될 때까지 대기한다
+kubectl wait --for=condition=ContainersReady pod -l app=apod-api -n kiamol-ch14-test
+
+# 애플리케이션 URL을 확인한다
+kubectl get svc apod-web -o jsonpath='http://{.status.loadBalancer.ingress[0].*}:8014' -n kiamol-ch14-test
+
+# 웹 브라우저에서 애플리케이션에 접근해 본 후
+# 프로메테우스 스크래핑 대상 목록 페이지를 새로고침한다
+
+-----------------------------------------------------
+# 모니터링 네임스페이스에 그라파나를 배치한다
+kubectl apply -f grafana/
+
+# 그라파나가 준비될 때까지 대기한다
+kubectl wait --for=condition=ContainersReady pod -l app=grafana -n kiamol-ch14-monitoring
+
+# 대시보드를 보기 위한 URL 확인한다
+kubectl get svc grafana -o jsonpath='http://{.status.loadBalancer.ingress[0].*}:3000/d/kb5nhJAZk' -n kiamol-ch14-monitoring
+
+# 확인한 URL에 접근해 사용자명/패스워드 kiamol로 로그인한다
+-----------------------------------------------------
+
+# 애플리케이션을 배치한다
+kubectl apply -f todo-list/
+
+# 애플리케이션이 준비될 때까지 대기한다
+kubectl wait --for=condition=ContainersReady pod -l app=todo-web -n kiamol-ch14-test
+
+# 애플리케이션에 접근해 할일 항목을 추가한 다음
+# 스크립트를 실행해 약간의 부하를 가한다(윈도우)
+# (역주) 윈도우에서 보안 오류 발생 시 Set-ExecutionPolicy RemoteSigned 명령을
+# 실행한다(y 선택)
+.\loadgen.ps1
+
+# 스크립트를 실행해 약간의 부하를 가한다(macOS/리눅스)
+chmod +x ./loadgen.sh && ./loadgen.sh
+
+# 대시보드를 보기 위한 URL 확인하기
+kubectl get svc grafana -o jsonpath='http://{.status.loadBalancer.ingress[0].*}:3000/d/Eh0VF3iGz' -n kiamol-ch14-monitoring
+
+# 대시보드를 확인한다
+
+-----------------------------------------------------
+# 추출기 사이드카 컨테이너를 추가한다
+kubectl apply -f todo-list/update/proxy-with-exporter.yaml
+
+# 파드가 준비될 때까지 대기한다
+kubectl wait --for=condition=ContainersReady pod -l app=todo-proxy -n kiamol-ch14-test
+
+# 추출기 컨테이너의 로그를 화면에 출력한다
+kubectl logs -l app=todo-proxy -n kiamol-ch14-test -c exporter
+
+# 대시보드 정의가 담긴 컨피그맵을 배치한다
+kubectl apply -f grafana/update/grafana-dashboard-todo-list-v2.yaml
+
+# 그라파나를 재시작해 새로운 대시보드 정의를 적용한다
+kubectl rollout restart deploy grafana -n kiamol-ch14-monitoring
+
+# 대시보드를 새로고침한 다음 사용자명/패스워드 kiamol로 다시 로그인하라
+
+-----------------------------------------------------
+# PostgreSQL 추출기를 디플로이먼트에 추가한다
+kubectl apply -f todo-list/update/db-with-exporter.yaml
+
+# 새로운 파드가 준비될 때까지 기다린다
+kubectl wait --for=condition=ContainersReady pod -l app=todo-db -n kiamol-ch14-test
+
+# 추출기 컨테이너의 로그를 화면에 출력한다
+kubectl logs -l app=todo-db -n kiamol-ch14-test -c exporter
+
+# 그라파나를 재시작해 새로운 대시보드 정의를 적용한다
+kubectl apply -f grafana/update/grafana-dashboard-todo-list-v3.yaml
+kubectl rollout restart deploy grafana -n kiamol-ch14-monitoring
+
+-----------------------------------------------------
+# 무작위 숫자 API를 테스트 네임스페이스에 배치한다
+kubectl apply -f numbers/
+
+# 그라파나에 새로운 대시보드 정의를 추가한다
+kubectl apply -f grafana/update/numbers-api/
+
+# API에 접근하기 위한 URL을 확인한다
+kubectl get svc numbers-api -o jsonpath='#app - http://{.status.loadBalancer.ingress[0].*}:8016/rng' -n kiamol-ch14-test
+
+# /rng 경로에 접근해 API를 호출한다
+# 세 번 호출하면 API가 고장을 일으킬 것이다
+# 그 다음 /reset 경로로 접근해 API를 초기화한다
+
+# 대시보드의 URL을 확인한 뒤 그라파나에서 대시보드에 접근한다
+kubectl get svc grafana -o jsonpath='# dashboard - http://{.status.loadBalancer.ingress[0].*}:3000/d/Tb6isdMMk' -n kiamol-ch14-monitoring
+-----------------------------------------------------
+
+# cAdvisor와 kube-state-metrics를 배치한다
+kubectl apply -f kube/
+
+# cAdvisor가 준비될 때까지 대기한다
+kubectl wait --for=condition=ContainersReady pod -l app=cadvisor -n kube-system
+
+# 프로메테우스 설정을 변경한다
+kubectl apply -f prometheus/update/prometheus-config-kube.yaml
+
+# 변경된 컨피그맵이 파드에 적용될 때까지 대기한다
+sleep 30
+
+# 프로메테우스가 변경된 설정을 적용하도록 HTTP POST 요청을 보낸다
+curl -X POST $(kubectl get svc prometheus -o jsonpath='http://{.status.loadBalancer.ingress[0].*}:9090/-/reload' -n kiamol-ch14-monitoring
+
+# 프로메테우스 UI를 보면 /graph 페이지에서
+# 컨테이너와 쿠버네티스 객체에 대한 측정값이 추가됐다
+
+-----------------------------------------------------
+# 대시보드 정의가 담긴 컨피그맵을 배치하고
+# 그라파나에 변경을 적용한다
+kubectl apply -f grafana/update/kube/
+
+# 그라파나가 다시 준비될 때까지 대기한다
+kubectl wait --for=condition=ContainersReady pod -l app=grafana -n kiamol-ch14-monitoring
+
+# 새로 추가된 대시보드의 URL을 확인한다
+kubectl get svc grafana -o jsonpath='http://{.status.loadBalancer.ingress[0].*}:3000/d/oWe9aYxmk' -n kiamol-ch14-monitoring
+
+# 대시보드를 확인한다
+-----------------------------------------------------
+
+# 대시보드 정의를 변경한다
+kubectl apply -f grafana/update/grafana-dashboard-numbers-api-v2.yaml
+
+# 그라파나를 재시작해 변경된 대시보드를 적용한다
+kubectl rollout restart deploy grafana -n kiamol-ch14-monitoring
+
+# 파드가 재시작할 때까지 대기한다
+kubectl wait --for=condition=ContainersReady pod -l app=grafana -n kiamol-ch14-monitoring
+
+# 무작위 숫자 API의 대시보드를 확인한다
+
+-----------------------------------------------------
+kubectl delete ns -l kiamol=ch14
+kubectl delete all -n kube-system -l kiamol=ch14
+-----------------------------------------------------

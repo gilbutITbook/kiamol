@@ -1,0 +1,18 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cert-generator
+  labels:
+    kiamol: ch15
+spec:
+  selector:
+    matchLabels:
+      app: cert-generator
+  template:
+    metadata:
+      labels:
+        app: cert-generator
+    spec:
+      containers:
+        - name: cert-generator
+          image: kiamol/ch15-cert-generator

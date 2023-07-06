@@ -1,0 +1,7 @@
+version: "3.7"
+
+services:
+  ch19-stress:
+    image: kiamol/ch19-stress
+    build:
+      context: ./stress
